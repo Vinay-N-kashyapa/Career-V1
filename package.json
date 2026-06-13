@@ -1,0 +1,36 @@
+{
+  "name": "pinit-career-os",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "node build.js",
+    "start": "next start -p 3000",
+    "export": "next build",
+    "deploy": "next build && firebase deploy --only hosting",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.1",
+    "@tanstack/react-query": "^5.28.0",
+    "firebase": "^10.9.0",
+    "next": "14.2.29",
+    "puppeteer-core": "^25.1.0",
+    "qrcode.react": "^3.1.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-markdown": "^9.0.1",
+    "three": "^0.162.0",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.73",
+    "@types/react-dom": "^18.2.23",
+    "@types/three": "^0.162.0",
+    "firebase-tools": "^13.0.0",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.4.3"
+  }
+}

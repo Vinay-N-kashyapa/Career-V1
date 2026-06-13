@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.importStudentsFromExcel = exports.exportStudentsList = exports.exportResultsExcel = exports.importQuestionsFromExcel = exports.downloadQuestionTemplate = void 0;
+const downloadQuestionTemplate = () => { };
+exports.downloadQuestionTemplate = downloadQuestionTemplate;
+const importQuestionsFromExcel = () => { };
+exports.importQuestionsFromExcel = importQuestionsFromExcel;
+const exportResultsExcel = () => { };
+exports.exportResultsExcel = exportResultsExcel;
+const exportStudentsList = () => { };
+exports.exportStudentsList = exportStudentsList;
+const importStudentsFromExcel = () => { };
+exports.importStudentsFromExcel = importStudentsFromExcel;
