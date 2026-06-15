@@ -463,11 +463,12 @@ export default function LoginForm() {
               <span style={{ width: 6, height: 6, background: 'var(--accent)', borderRadius: '50%', display: 'inline-block' }} />
               ⚡ Quick Demo Shortcuts
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {[
                 { label: 'Admin', email: 'admin@pinit.in' },
                 { label: 'Recruiter', email: 'rec@pinit.in' },
-                { label: 'Consultant', email: 'con@pinit.in' }
+                { label: 'Consultant', email: 'con@pinit.in' },
+                { label: 'Student', email: 'student@pinit.in' }
               ].map(demo => (
                 <button
                   id={`btn-shortcut-${demo.label.toLowerCase()}`}

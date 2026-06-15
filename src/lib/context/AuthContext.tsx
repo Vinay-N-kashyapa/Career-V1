@@ -51,7 +51,7 @@ function usernameToEmail(username: string): string {
 
 function isDemoEmail(email: string): boolean {
   const e = email.toLowerCase();
-  return e === 'admin@pinit.in' || e === 'rec@pinit.in' || e === 'con@pinit.in';
+  return e === 'admin@pinit.in' || e === 'rec@pinit.in' || e === 'con@pinit.in' || e === 'student@pinit.in';
 }
 
 function sbUserToAppUser(sbUser: SbUser, profile: Record<string, unknown> | null): User {
@@ -60,6 +60,7 @@ function sbUserToAppUser(sbUser: SbUser, profile: Record<string, unknown> | null
   if (emailLower === 'admin@pinit.in') role = 'admin';
   else if (emailLower === 'rec@pinit.in') role = 'recruiter';
   else if (emailLower === 'con@pinit.in') role = 'consultant';
+  else if (emailLower === 'student@pinit.in') role = 'student';
 
   return {
     ...profile,
@@ -217,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const emailLower = email.toLowerCase();
     
     // Check if default credential attempt first
-    const isDefaultUser = (emailLower === 'admin@pinit.in' || emailLower === 'rec@pinit.in' || emailLower === 'con@pinit.in') && password === '111111';
+    const isDefaultUser = (emailLower === 'admin@pinit.in' || emailLower === 'rec@pinit.in' || emailLower === 'con@pinit.in' || emailLower === 'student@pinit.in') && password === '111111';
     
     try {
       let sbUser;
@@ -259,6 +260,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else if (emailLower === 'con@pinit.in') {
             role = 'consultant';
             displayName = 'Career Consultant';
+          } else if (emailLower === 'student@pinit.in') {
+            role = 'student';
+            displayName = 'Ashwanth Kumar';
           }
 
           const profile = {
@@ -289,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (emailLower === 'admin@pinit.in') { role = 'admin'; displayName = 'System Admin'; }
         else if (emailLower === 'rec@pinit.in') { role = 'recruiter'; displayName = 'Lead Recruiter'; }
         else if (emailLower === 'con@pinit.in') { role = 'consultant'; displayName = 'Career Consultant'; }
+        else if (emailLower === 'student@pinit.in') { role = 'student'; displayName = 'Ashwanth Kumar'; }
         profile = {
           ...(isDemoEmail(sbUser.email || '') ? DEMO_PROFILE : EMPTY_PROFILE),
           uid:         sbUser.id,
@@ -317,6 +322,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (emailLower === 'con@pinit.in') {
           role = 'consultant';
           displayName = 'Career Consultant';
+        } else if (emailLower === 'student@pinit.in') {
+          role = 'student';
+          displayName = 'Ashwanth Kumar';
         }
         const mockSbUser = {
           id: 'mock-uid-' + role,

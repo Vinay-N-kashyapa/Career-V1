@@ -520,7 +520,7 @@ export default function AvatarMentorWidget({
   useEffect(() => {
     if (!careerProfile || userId === 'guest') return;
     memory.storePersonalInfo({
-      name: userId, goals: [`Improve ATS score from ${careerProfile.ats_score||0} to 80+`],
+      name: userId, goals: [`Improve Career Score from ${careerProfile.ats_score||0} to 80+`],
       occupation: 'student', interests: careerProfile.weak_areas||[],
       preferences: { atsScore: careerProfile.ats_score, trustScore: careerProfile.trust_score, dnaScore: careerProfile.career_dna_score, streak: careerProfile.mission_streak, teacherId },
     });
@@ -547,8 +547,8 @@ export default function AvatarMentorWidget({
       const score  = careerProfile?.ats_score||0;
       const streak = careerProfile?.mission_streak||0;
       const g = score < 50
-        ? `Hi! I'm ${teacher.name}. Your ATS score is ${score}/100 — let's build it together. What shall we work on?`
-        : `Welcome back! ATS ${score}/100 · 🔥 ${streak}-day streak. How can I help today?`;
+        ? `Hi! I'm ${teacher.name}. Your Career Score is ${score}/100 — let's build it together. What shall we work on?`
+        : `Welcome back! Score ${score}/100 · 🔥 ${streak}-day streak. How can I help today?`;
       setMessages([{ role: 'assistant', content: g }]);
     }
   }, [careerProfile, activeQuest, teacher.name]);
@@ -557,7 +557,7 @@ export default function AvatarMentorWidget({
 
   // Build ML-powered quick prompts
   const quickPrompts = [
-    `📊 How do I improve my ATS from ${careerProfile?.ats_score||0}?`,
+    `📊 How do I improve my Career Score from ${careerProfile?.ats_score||0}?`,
     '🎯 What missions should I do today?',
     '📚 What should I study next?',
     '💼 Am I ready for job interviews?',

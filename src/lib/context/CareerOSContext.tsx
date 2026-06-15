@@ -498,18 +498,15 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
   }, [keys.demoTabsUnlocked, save]);
 
   // Derive unlocked tabs dynamically
-  const ALL_TABS = ['/dashboard', '/resume', '/career-builder', '/quests', '/interview', '/career-twin', '/sentinel', '/career-dna'];
-  const activeTabs = demoTabsUnlocked ? ALL_TABS : ['/dashboard', '/resume', '/career-builder', '/quests'];
+  const ALL_TABS = ['/dashboard', '/vault', '/quests', '/missions', '/career-twin', '/career-dna', '/opportunities'];
+  const activeTabs = demoTabsUnlocked ? ALL_TABS : ['/dashboard', '/vault', '/quests', '/missions'];
   if (!demoTabsUnlocked) {
     if (onboardingStep >= 5 || completedQuests.length > 0) {
-      activeTabs.push('/interview');
-    }
-    if (javaTestPassed) {
       activeTabs.push('/career-twin');
-      activeTabs.push('/sentinel');
     }
     if (onboardingStep >= 6 || javaTestPassed) {
       activeTabs.push('/career-dna');
+      activeTabs.push('/opportunities');
     }
   }
 

@@ -87,10 +87,10 @@ export default function DashboardPage() {
 
   const teacherId = user?.selectedTeacherId || 'priya';
   const teacher = {
-    priya:  { name: 'Ms. Priya',  emoji: '👩‍💼', role: 'Career Architect', advice: 'Focus on structuring your resume. A strong ATS foundation is crucial.' },
+    priya:  { name: 'Ms. Priya',  emoji: '👩‍💼', role: 'Career Architect', advice: 'Keep your Vault updated with verified projects and certificates. A strong Trust Score is crucial.' },
     aisha:  { name: 'Ms. Aisha',  emoji: '👩‍🏫', role: 'SDE Technical Lead', advice: 'Deep dive into coding assignments. Clean code is your strongest asset.' },
     rohan:  { name: 'Mr. Rohan',  emoji: '👨‍💻', role: 'Fullstack Dev Mentor', advice: 'Consistency is key. Try clearing one coding quest every day.' },
-    vikram: { name: 'Mr. Vikram', emoji: '👨‍⚖️', role: 'Executive Recruiter', advice: 'Your mock interviews showcase raw talent. Build communication confidence!' },
+    vikram: { name: 'Mr. Vikram', emoji: '👨‍⚖️', role: 'Executive Recruiter', advice: 'Maintain a high mission streak to build consistency. Recruiters value regular engagement.' },
   }[teacherId] || { name: 'Ms. Priya', emoji: '👩‍💼', role: 'Career Architect', advice: 'Let\'s analyze your weak areas today.' };
 
   const {
@@ -110,7 +110,9 @@ export default function DashboardPage() {
     completedQuests,
     javaTestPassed,
     earnPins,
-    pins
+    pins,
+    generateFusedRoadmap,
+    setOnboarding
   } = cOS;
 
   // AI Verification Scan Simulator States
@@ -134,7 +136,7 @@ export default function DashboardPage() {
       '[SECURE] Document verification keys extracted.',
       '[AI] Running optical character recognition (OCR) on proof asset...',
       '[AI] Analyzing issuer credentials and accreditation database...',
-      '[AI] Matching skill tags with resume career twin profile...',
+      '[AI] Matching skill tags with Career Twin profile...',
       '[SYSTEM] Authenticity score: 98.6% confidence rating.',
       '[SUCCESS] Cryptographic proof verified successfully.',
       '[SYSTEM] Committing verification state to local index...'
@@ -171,12 +173,58 @@ export default function DashboardPage() {
     });
   };
 
+  // Inline Trajectory Generator
+  const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
+  
+  const handleChooseTrajectory = async (trackTitle: string) => {
+    setIsGeneratingRoadmap(true);
+    let skillTags: string[] = [];
+    let weakAreas: string[] = [];
+    if (trackTitle === 'Java Backend Architect') {
+      skillTags = ['Java', 'Spring Boot', 'SQL'];
+      weakAreas = ['Caching', 'Distributed Systems'];
+    } else if (trackTitle === 'Frontend React Engineer') {
+      skillTags = ['React', 'Next.js', 'CSS'];
+      weakAreas = ['State Sync', 'Performance'];
+    } else if (trackTitle === 'AI Software Engineer') {
+      skillTags = ['Python', 'PyTorch', 'LLMs'];
+      weakAreas = ['Model Pipelines', 'Vector DBs'];
+    } else {
+      skillTags = ['Node.js', 'Docker', 'React'];
+      weakAreas = ['CI/CD', 'APIs'];
+    }
+    
+    try {
+      setOnboarding({
+        role: trackTitle,
+        education: onboardingAnswers.education || 'B.Tech CS',
+        skills: skillTags.join(', '),
+        experience: onboardingAnswers.experience || 'None'
+      });
+      await generateFusedRoadmap(skillTags, weakAreas);
+    } catch (e) {
+      console.error("Inline roadmap compilation error", e);
+    } finally {
+      setIsGeneratingRoadmap(false);
+    }
+  };
+
   // Trajectory modules parser
+  const [allQuestsMap, setAllQuestsMap] = useState<Record<string, { title: string; category?: string }>>({});
   const [roadmapModules, setRoadmapModules] = useState<any[]>([]);
-  const [selectedTrajectory, setSelectedTrajectory] = useState('Java Backend Architect');
+  const [mounted, setMounted] = useState(false);
+  const [selectedTrajectory, setSelectedTrajectory] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const map: Record<string, { title: string; category?: string }> = {};
+      QUESTS_REGISTRY.forEach(q => {
+        map[q.id] = { title: q.title, category: q.type === 'coding' ? 'assignment' : 'learning' };
+      });
       const modulesKey = `pinit_${user?.id || 'guest'}_roadmap_modules`;
       const saved = localStorage.getItem(modulesKey);
       if (saved) {
@@ -184,13 +232,35 @@ export default function DashboardPage() {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
             setRoadmapModules(parsed);
+            parsed.forEach((m: any) => {
+              if (Array.isArray(m.quests)) {
+                m.quests.forEach((q: any) => {
+                  map[q.id] = { title: q.title, category: q.category };
+                });
+              }
+            });
           }
         } catch {}
+      } else {
+        setRoadmapModules([]);
       }
+      setAllQuestsMap(map);
     }
-  }, [user?.id, roadmapGenerated]);
+  }, [user?.id, completedQuests, roadmapGenerated]);
+
+  const [animIn, setAnimIn] = useState(false);
+
+  useEffect(() => { 
+    if (mounted) {
+      setAnimIn(true);
+    }
+  }, [mounted]);
 
   const level = computeLevel(xp, careerScore);
+
+  if (!mounted) {
+    return <div style={{ minHeight: '100vh', background: 'var(--bg)' }} />;
+  }
 
   // Derive mock active missions from catalog minus what is completed
   const allMissions = [
@@ -306,8 +376,8 @@ export default function DashboardPage() {
   }
 
   recommendations.push({
-    title: 'Improve Resume ATS score',
-    desc: 'Select more verified credentials from Vault inside Assets Studio to target ATS matching.',
+    title: 'Verify Skills in Vault',
+    desc: 'Add certificates or project docs to your Vault to boost your recruiter visibility and trust score.',
     label: 'Critical Action',
     color: 'var(--coral)'
   });
@@ -338,9 +408,9 @@ export default function DashboardPage() {
     nextStepIcon = '⚡';
     nextStepColor = 'var(--amber)';
   } else if (!roadmapGenerated) {
-    nextStepTitle = 'Generate Career Quest Roadmap';
-    nextStepDesc = 'Select your target trajectory (e.g. Java Backend Engineer) to construct your quest path.';
-    nextStepHref = '/career-builder';
+    nextStepTitle = 'Choose Your Career Trajectory';
+    nextStepDesc = 'Select your target trajectory below to build your custom socratic quest path.';
+    nextStepHref = '#trajectory-selector';
     nextStepIcon = '🛠️';
     nextStepColor = 'var(--teal)';
   } else {
@@ -552,12 +622,12 @@ export default function DashboardPage() {
           <div className="glass-card-redone" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 24 }}>
             <div className="glowing-glow" style={{ top: -30, right: -30, width: 140, height: 140, background: 'rgba(99,102,241,0.25)' }} />
             <div style={{ flex: 1, zIndex: 1 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>🛡 Career Score (ATS)</div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>🛡 Career Score</div>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 900, color: 'var(--t1)', marginBottom: 6 }}>
                 <span style={{ color: 'var(--accent)' }}><AnimatedNum value={careerScore}/></span><span style={{ fontSize: 14, color: 'var(--t3)' }}> / 100</span>
               </h2>
               <p style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.55, margin: 0 }}>
-                Synthesized ATS capability rating derived from verified skills, active context, and milestones.
+                Synthesized capability rating derived from verified skills, active context, and milestones.
               </p>
             </div>
 
@@ -677,7 +747,7 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             
             {/* Trajectory Progress Timeline Card */}
-            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 24, boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+            <div id="trajectory-selector" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 24, boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border)', background: 'rgba(18, 24, 36, 0.2)' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: 'var(--t1)', display: 'flex', alignItems: 'center', gap: 8 }}>
                   🗺️ SDE Trajectory Progress Map
@@ -776,54 +846,66 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                    <div style={{ padding: '16px 20px', background: 'rgba(220, 38, 38, 0.03)', border: '1px solid rgba(220, 38, 38, 0.12)', borderRadius: 14, display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <span style={{ fontSize: 22 }}>🔒</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>Roadmap Not Configured</div>
-                        <p style={{ fontSize: 11.5, color: 'var(--t3)', margin: 0, lineHeight: 1.4 }}>
-                          Select your desired SDE trajectory below to build your custom socratic quest path.
+                    {isGeneratingRoadmap ? (
+                      <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--bg3)', borderRadius: 16 }}>
+                        <div style={{ fontSize: 32, marginBottom: 12, animation: 'spin 1.5s linear infinite', display: 'inline-block' }}>🗺️</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>Generating AI Quest Roadmap...</div>
+                        <p style={{ fontSize: 11.5, color: 'var(--t3)', margin: '4px 0 0', lineHeight: 1.4 }}>
+                          Fusing your strengths and trajectory gaps to build a customized socratic quest path.
                         </p>
                       </div>
-                    </div>
-
-                    {/* Trajectory selector grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                      {[
-                        { title: 'Java Backend Architect', icon: '☕', color: 'var(--accent)', desc: 'Spring Boot, SQL, Distributed Systems, APIs, Caching.' },
-                        { title: 'Frontend React Engineer', icon: '⚛️', color: 'var(--teal)', desc: 'Next.js, State Sync, Webpack, Tailwind, WebGL.' },
-                        { title: 'AI Software Engineer', icon: '🤖', color: 'var(--purple)', desc: 'Python, LLMs, Vector DBs, Model pipelines, PyTorch.' },
-                        { title: 'Fullstack Generalist', icon: '💻', color: 'var(--green)', desc: 'Node.js, Postgres, Docker, React, CI/CD pipelines.' }
-                      ].map((track) => (
-                        <div key={track.title} onClick={() => router.push('/career-builder')} style={{
-                          background: 'var(--bg3)',
-                          border: `1.5px solid ${selectedTrajectory === track.title ? track.color : 'var(--border)'}`,
-                          borderRadius: 16,
-                          padding: 16,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          boxShadow: selectedTrajectory === track.title ? `0 0 12px ${track.color}18` : 'none',
-                          textAlign: 'left'
-                        }}
-                        onMouseEnter={() => setSelectedTrajectory(track.title)}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <span style={{ fontSize: 24 }}>{track.icon}</span>
-                            {selectedTrajectory === track.title && (
-                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: track.color, boxShadow: `0 0 8px ${track.color}` }} />
-                            )}
+                    ) : (
+                      <>
+                        <div style={{ padding: '16px 20px', background: 'rgba(220, 38, 38, 0.03)', border: '1px solid rgba(220, 38, 38, 0.12)', borderRadius: 14, display: 'flex', gap: 12, alignItems: 'center' }}>
+                          <span style={{ fontSize: 22 }}>🔒</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>Roadmap Not Configured</div>
+                            <p style={{ fontSize: 11.5, color: 'var(--t3)', margin: 0, lineHeight: 1.4 }}>
+                              Select your desired SDE trajectory below to build your custom socratic quest path.
+                            </p>
                           </div>
-                          <h4 style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--t1)', margin: '0 0 4px' }}>
-                            {track.title}
-                          </h4>
-                          <p style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.45, margin: '0 0 12px' }}>
-                            {track.desc}
-                          </p>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: track.color, fontFamily: 'var(--font-mono)' }}>
-                            Choose Path ➔
-                          </span>
                         </div>
-                      ))}
-                    </div>
+
+                        {/* Trajectory selector grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                          {[
+                            { title: 'Java Backend Architect', icon: '☕', color: 'var(--accent)', desc: 'Spring Boot, SQL, Distributed Systems, APIs, Caching.' },
+                            { title: 'Frontend React Engineer', icon: '⚛️', color: 'var(--teal)', desc: 'Next.js, State Sync, Webpack, Tailwind, WebGL.' },
+                            { title: 'AI Software Engineer', icon: '🤖', color: 'var(--purple)', desc: 'Python, LLMs, Vector DBs, Model pipelines, PyTorch.' },
+                            { title: 'Fullstack Generalist', icon: '💻', color: 'var(--green)', desc: 'Node.js, Postgres, Docker, React, CI/CD pipelines.' }
+                          ].map((track) => (
+                            <div key={track.title} onClick={() => handleChooseTrajectory(track.title)} style={{
+                              background: 'var(--bg3)',
+                              border: `1.5px solid ${selectedTrajectory === track.title ? track.color : 'var(--border)'}`,
+                              borderRadius: 16,
+                              padding: 16,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              boxShadow: selectedTrajectory === track.title ? `0 0 12px ${track.color}18` : 'none',
+                              textAlign: 'left'
+                            }}
+                            onMouseEnter={() => setSelectedTrajectory(track.title)}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                <span style={{ fontSize: 24 }}>{track.icon}</span>
+                                {selectedTrajectory === track.title && (
+                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: track.color, boxShadow: `0 0 8px ${track.color}` }} />
+                                )}
+                              </div>
+                              <h4 style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--t1)', margin: '0 0 4px' }}>
+                                {track.title}
+                              </h4>
+                              <p style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.45, margin: '0 0 12px' }}>
+                                {track.desc}
+                              </p>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: track.color, fontFamily: 'var(--font-mono)' }}>
+                                Choose Path ➔
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

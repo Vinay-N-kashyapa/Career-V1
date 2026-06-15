@@ -30,6 +30,10 @@ export const DEMO_PROFILE = {
   missions_completed: 18,
   interviews_done: 6,
   vault_count: 3,
+  onboarding_step: 5,
+  onboarding_answers: { role: 'Full Stack Engineer', education: 'B.Tech CS', skills: 'React, Node.js, Python', experience: 'None', hasCompleted: true },
+  roadmap_generated: true,
+  completed_quests: ['fizzbuzz', 'reverser'],
 };
 
 export const DEMO_MISSIONS = [
@@ -241,7 +245,7 @@ export async function updateUserProfile(uid: string, data: Record<string, any>) 
 
 export async function ensureSeedData(uid: string, profile: Record<string, any>) {
   const emailLower = (profile?.email as string || '').toLowerCase();
-  const isDemo = emailLower === 'admin@pinit.in' || emailLower === 'rec@pinit.in' || emailLower === 'con@pinit.in';
+  const isDemo = emailLower === 'admin@pinit.in' || emailLower === 'rec@pinit.in' || emailLower === 'con@pinit.in' || emailLower === 'student@pinit.in';
 
   if (isDemo) {
     // 1. Seed missions

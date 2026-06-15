@@ -39,16 +39,12 @@ function GlobalAvatar({ user, profile }: { user: any; profile: any }) {
 
   // Sync tutorial steps based on current path and state changes
   useEffect(() => {
-    if (onboardingStep === 1 && pathname === '/resume') {
+    if (roadmapGenerated && onboardingStep < 4) {
+      setOnboardingStep(4);
+    } else if (onboardingStep === 1 && pathname === '/career-twin') {
       setOnboardingStep(2);
     }
-    if (onboardingStep === 2 && resumeGenerated) {
-      setOnboardingStep(3);
-    }
-    if (onboardingStep === 3 && pathname === '/career-builder') {
-      setOnboardingStep(4);
-    }
-  }, [pathname, onboardingStep, resumeGenerated, setOnboardingStep]);
+  }, [pathname, onboardingStep, roadmapGenerated, setOnboardingStep]);
 
   if (!mounted) return null;
 
@@ -67,41 +63,31 @@ function GlobalAvatar({ user, profile }: { user: any; profile: any }) {
     buttonText = "Let's Begin!";
     onButtonClick = () => setOnboardingStep(1);
   } else if (onboardingStep === 1) {
-    dialogueText = "Welcome to the Command Center Dashboard! This panel tracks your XP progression, consistency streak, and recruiter visibility index. To begin, click on the 'Resume Builder' tab (2nd tab) to import credentials from your Secure Vault!";
+    dialogueText = "Welcome to the Command Center Dashboard! This panel tracks your XP progression, consistency streak, and Career DNA. To start, click on the 'Career Twin' tab to initialize your digital twin profile!";
   } else if (onboardingStep === 2) {
-    dialogueText = "We are in the Resume & ATS Studio. Select a document from your Secure Vault to let AI parse your credentials. This compiles your resume, CV, and portfolio, and detects skill gaps to populate your roadmap!";
-  } else if (onboardingStep === 3) {
-    dialogueText = "Excellent! Your professional assets are compiled but currently locked. Let's go to the 'Career Builder' tab (3rd tab) next to configure your target role path and generate your quest roadmap!";
-  } else if (onboardingStep === 4) {
+    dialogueText = "We are in the Career Twin studio. Map your current skills against your desired engineering track. When you are ready, return to the Dashboard and choose a Trajectory to build your custom quest roadmap!";
+  } else if (onboardingStep === 3 || onboardingStep === 4) {
     if (!roadmapGenerated) {
-      dialogueText = "Welcome to the Career Builder. Select your target path (e.g. Backend Developer, ML Engineer) and click 'Generate Roadmap' to compile custom quests that match the role requirements!";
+      dialogueText = "Select your target SDE trajectory on the Dashboard page below to compile your custom quest roadmap!";
     } else {
-      dialogueText = "Your milestone roadmap is ready! Head to the 'Quests' tab (4th tab) to take socratic lectures and coding challenges, or the 'Daily Missions' tab (7th tab) to close your parsed skill gaps!";
+      dialogueText = "Your custom quest roadmap is compiled! Head to the 'Quests' tab to begin learning or the 'Missions' tab to solve daily gap-closure challenges!";
     }
   } else if (onboardingStep === 5) {
-    if (!javaTestPassed) {
-      dialogueText = "Excellent job completing your quests! I've unlocked the 'AI Interviews' tab (5th tab) for a verbal mock coding simulation. Select a mentor (Priya, Aisha, Rohan, or Vikram) to begin your assessment!";
-    } else {
-      dialogueText = "Congratulations on passing the technical interview assessment! I have unlocked your public portfolio deployment, cryptographic Trust registry (Sentinel), and the full recruiter matching engine!";
-    }
+    dialogueText = "Excellent job! You are progressing nicely. Keep completing quests to build your Career DNA and Vault documents!";
   } else {
     // ── Post-onboarding: Context-aware tab guide ──
     // The avatar now dynamically explains the current tab the user is viewing
     const TAB_GUIDES: Record<string, string> = {
-      '/dashboard': "🏠 **Home Dashboard** — Your command center! Here you can see your Career Score (combines ATS, Trust, and DNA metrics), active mission streak, XP tier progression, and AI-personalised next-step recommendations. Keep your streak alive by completing daily missions!",
-      '/resume': "📄 **Resume Builder** — Import documents from your Secure Vault, or upload a resume manually. My AI engine will parse it for ATS keyword coverage, identify gaps like Docker or CI/CD, and auto-generate targeted quests. Switch between Upload (AI analysis) and Build (form editor with live ATS scoring) tabs!",
-      '/career-builder': "🛠 **Career Builder** — Select your dream role trajectory (e.g. Java Backend Engineer at Swiggy) and I'll compile a custom quest roadmap with prerequisite modules. Each quest unlocks the next, building your skills systematically toward your target position!",
-      '/quests': "🗺 **Quests** — Your socratic learning path! Each quest is a guided coding challenge or theory lesson. Complete quests in order to unlock the next module. Spend Pins to access premium quests. Your progress here directly boosts your Career Score and unlocks the Interview tab!",
-      '/interview': "🎙 **AI Interviews** — Face a live mock technical interview with your selected AI mentor. I'll evaluate your verbal responses, code solutions, and system design thinking across multiple stages (Welcome → Coding → Complexity → Scenario → Verdict). Pass to unlock portfolio deployment!",
+      '/dashboard': "🏠 **Home Dashboard** — Your command center! Here you can see your Career Score (combines DNA, Trust, and Quest metrics), active mission streak, XP tier progression, and AI-personalised next-step recommendations. Keep your streak alive by completing daily missions!",
+      '/quests': "🗺 **Quests** — Your socratic learning path! Each quest is a guided coding challenge or theory lesson. Complete quests in order to unlock the next module. Spend Pins to access premium quests. Your progress here directly boosts your Career Score!",
       '/career-twin': "🧬 **Career Twin** — Take the onboarding assessment to map your Current Self against your Future Self (target role). I'll calculate an alignment percentage and identify exactly which skills, certifications, and experiences you need to bridge the gap!",
-      '/missions': "⚡ **Daily Missions** — Every day, 5 personalised micro-challenges are generated based on your resume gaps and career trajectory. Complete them to maintain your streak, earn XP and Trust points, and use the Custom Skill Trainer to request missions on any topic you want to master!",
-      '/sentinel': "🔐 **Sentinel** — Your cryptographic trust registry. Every verified credential, completed quest, and passed interview is hashed and timestamped here. Recruiters can independently verify your achievements through SHA-256 signed evidence chains!",
+      '/missions': "⚡ **Daily Missions** — Every day, 5 personalised micro-challenges are generated based on your skill gaps and career trajectory. Complete them to maintain your streak, earn XP and Trust points, and use the Custom Skill Trainer to request missions on any topic you want to master!",
       '/career-dna': "🔬 **Career DNA** — A deep diagnostic of your professional genome. View skill radar charts, competency breakdowns, learning velocity metrics, and personalised growth recommendations derived from all your Career OS activity!",
-      '/opportunities': "🎯 **Opportunities** — AI-matched job listings ranked by how closely your actual verified skills match each role's requirements. Higher Career Scores and Trust metrics push you higher in recruiter search results and unlock priority application slots!",
-      '/notifications': "🔔 **Notifications** — System alerts for quest completions, streak milestones, recruiter views, gap analysis results, and new mission assignments. Check here to stay updated on your career progress!",
-      '/pricing': "⚡ **Pins & Plans** — Pins are your in-app currency earned through daily logins, quest completions, and mission streaks. Spend Pins to unlock premium AI features like Resume Enhance, advanced quests, and priority recruiter visibility!",
+      '/opportunities': "🎯 **Opportunities** — AI-matched job listings ranked by how closely your actual verified skills match each role's requirements. Higher Career Scores and Trust metrics push you higher in recruiter search results!",
+      '/notifications': "🔔 **Notifications** — System alerts for quest completions, streak milestones, recruiter views, and new mission assignments. Check here to stay updated on your career progress!",
+      '/pricing': "⚡ **Pins & Plans** — Pins are your in-app currency earned through daily logins, quest completions, and mission streaks. Spend Pins to unlock premium AI features like advanced quests!",
       '/profile': "👤 **Profile** — Manage your account settings, select your AI mentor personality (Priya, Aisha, Rohan, or Vikram), configure notification preferences, and view your cumulative career statistics!",
-      '/vault': "🗂️ **Vault** — Your secure document storage. Upload certifications, project evidence, and course badges. These feed into your Trust Score calculation and can be imported directly into the Resume Builder for AI analysis!",
+      '/vault': "🗂️ **Vault** — Your secure document storage. Upload certifications, project evidence, and course badges. These feed into your Trust Score calculation to verify your profile!",
     };
 
     // Match the current pathname to a guide entry
@@ -223,17 +209,14 @@ type NavSection = { section: string; items: NavNode[] };
 
 const isGroup = (n: NavNode): n is NavGroup => 'children' in n;
 
-// ── Student: 10 Redesigned Fused tabs ──
+// ── Student: Redesigned Active V1 tabs ──
 const STUDENT_NAV: NavSection[] = [
   { section: 'Career OS', items: [
     { href: '/dashboard',      icon: '🏠', label: 'Home' },
-    { href: '/resume',         icon: '📄', label: 'Resume Builder' },
-    { href: '/career-builder', icon: '🛠', label: 'Career Builder' },
+    { href: '/vault',          icon: '🗂️', label: 'Vault' },
     { href: '/quests',         icon: '🗺', label: 'Quests' },
-    { href: '/interview',      icon: '🎙', label: 'AI Interviews' },
-    { href: '/career-twin',    icon: '🧬', label: 'Career Twin' },
     { href: '/missions',       icon: '⚡', label: 'Missions' },
-    { href: '/sentinel',       icon: '🔐', label: 'Sentinel' },
+    { href: '/career-twin',    icon: '🧬', label: 'Career Twin' },
     { href: '/career-dna',     icon: '🔬', label: 'Career DNA' },
     { href: '/opportunities',  icon: '🎯', label: 'Opportunities' },
   ]},
@@ -385,7 +368,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               hasCompleted = parsed.hasCompleted;
             }
           }
-        } catch {}
+        } catch (e) {
+          console.error("AppShell redirect check: localStorage error", e);
+        }
       }
       if (!hasCompleted) {
         router.push('/onboarding');
@@ -714,7 +699,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {isStudent && !focusMode && (
             <div className="topbar-scores" style={{ display:'flex', gap:6, alignItems:'center' }}>
               {[
-                { icon:'ATS', val:careerScore, color:'var(--teal)'   },
+                { icon:'Career', val:careerScore, color:'var(--teal)' },
                 { icon:'DNA', val:dnaScore,    color:'var(--purple)' },
                 { icon:'🛡',  val:trustScore,  color:'var(--green)'  },
               ].map(p => (

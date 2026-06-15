@@ -41,16 +41,6 @@ function pickActions(profile: Profile): Action[] {
   const gaps    = profile?.weak_areas          || [];
 
   const candidates: Action[] = [
-    // Resume / ATS
-    {
-      icon:'📄', color:'var(--teal)',
-      title: ats < 40 ? 'Upload your resume — ATS score is low' : 'Improve your ATS score',
-      desc:  ats < 40
-        ? 'Your ATS score is below recruiter visibility thresholds. Upload a resume to unlock tailored missions.'
-        : `Your ATS score is ${Math.round(ats)}/100. ${gaps.length > 0 ? `Top gap: ${gaps[0]}.` : 'Run AI Improve to push it higher.'}`,
-      href: '/resume', cta: ats < 40 ? 'Upload Resume →' : 'AI Improve →',
-      urgency: ats < 40 ? 100 : ats < 60 ? 70 : 20,
-    },
     // Vault / certifications
     {
       icon:'🗂', color:'var(--purple)',
@@ -72,16 +62,6 @@ function pickActions(profile: Profile): Action[] {
         : `Outstanding! ${streak} consecutive days. Today's missions are ready.`,
       href: '/missions', cta: 'Do Missions →',
       urgency: streak === 0 ? 90 : streak < 3 ? 60 : 15,
-    },
-    // Mock interview
-    {
-      icon:'🎙', color:'var(--blue)',
-      title: intDone === 0 ? 'Take your first mock interview' : 'Practice another interview',
-      desc:  intDone === 0
-        ? 'Your interview score is unset. One session is enough to unlock your Communication score dimension.'
-        : `You have ${intDone} session${intDone > 1 ? 's' : ''} done. Regular practice improves your Career DNA by up to 15 points.`,
-      href: '/interview', cta: 'Start Interview →',
-      urgency: intDone === 0 ? 75 : intDone < 3 ? 40 : 8,
     },
     // Trust score
     {
