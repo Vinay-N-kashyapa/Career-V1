@@ -9,6 +9,8 @@ interface Props {
   teacherId?: string;
   animState?: AnimState;
   zoom?: number;
+  visible?: boolean;
+  paused?: boolean;
 }
 
 class AvatarScene {
@@ -25,9 +27,19 @@ class AvatarScene {
   animState: AnimState = 'idle';
   animT = 0;
   talkPhase = 0;
-  disposed = false;
+  private _paused = false;
+  get paused() { return this._paused; }
+  set paused(v: boolean) {
+    const wasPaused = this._paused;
+    this._paused = v;
+    if (wasPaused && !v) {
+      this.clock.getDelta(); // Reset timer delta to avoid animation jumping
+      this.loop();
+    }
+  }
   raf?: number;
   clock = new THREE.Clock();
+  disposed = false;
 
   isVRM = false;
   faceMeshes: THREE.Mesh[] = [];
@@ -68,24 +80,39 @@ class AvatarScene {
 
   async tryLoadVRM(teacherId: string) {
     const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+    const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js');
     const loader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    loader.setDRACOLoader(dracoLoader);
 
-    // Map teacherId to available VRM paths in order of preference
-    let paths: string[] = [];
-    if (teacherId === 'rohan') {
-      paths = ['/avatar/akira.vrm', '/avatar/riku.vrm', '/avatar/mentor.vrm'];
-    } else if (teacherId === 'vikram') {
-      paths = ['/avatar/riku.vrm', '/avatar/akira.vrm', '/avatar/mentor.vrm'];
-    } else if (teacherId === 'aisha') {
-      paths = ['/avatar/aisha.vrm', '/avatar/mentor.vrm', '/avatar/akira.vrm', '/avatar/riku.vrm'];
-    } else {
-      paths = ['/avatar/priya.vrm', '/avatar/mentor.vrm', '/avatar/akira.vrm', '/avatar/riku.vrm'];
-    }
+    // Map teacherId to exact assigned GLB models from readmes/avatar_readme.md
+    let modelName = 'hana.glb';
+    if (teacherId === 'priya') modelName = 'hana.glb';
+    else if (teacherId === 'anish') modelName = 'riku.glb';
+    else if (teacherId === 'aisha') modelName = 'yuki.glb';
+    else if (teacherId === 'rohan') modelName = 'akira.glb';
+    else if (teacherId === 'kashyap') modelName = 'sora.glb';
+    else if (teacherId === 'karthic') modelName = 'sora.glb';
+    else if (teacherId === 'maya') modelName = 'yuki.glb';
+    else if (teacherId === 'divya') modelName = 'mika.glb';
+    else if (teacherId === 'vikram') modelName = 'kaito.glb';
+    else if (teacherId === 'shalini') modelName = 'rei.glb';
+    else if (teacherId === 'aditya') modelName = 'sora.glb';
+    else if (teacherId === 'neha') modelName = 'mika.glb';
+    else if (teacherId === 'rajesh') modelName = 'riku.glb';
+    else if (teacherId === 'sneha') modelName = 'hana.glb';
+    else if (teacherId === 'abhijit') modelName = 'kaito.glb';
+    else modelName = 'hana.glb';
+
+    const paths = [`/avatar/${modelName}`];
+
 
     const loadAttempt = (idx: number): Promise<void> => {
       if (idx >= paths.length) return Promise.reject(new Error("No VRMs found"));
       return new Promise<void>((resolve, reject) => {
-        loader.load(paths[idx], gltf => {
+        const resolvedPath = paths[idx];
+        loader.load(resolvedPath, gltf => {
           this.scene.add(gltf.scene);
           this.isVRM = true;
           this.faceMeshes = [];
@@ -198,6 +225,7 @@ class AvatarScene {
           } else {
             console.warn("VRoidInterviewAvatar: No face meshes with morph target dictionary found!");
           }
+          this.centerCameraOnHead();
           resolve();
         }, undefined, () => {
           loadAttempt(idx + 1).then(resolve).catch(reject);
@@ -290,6 +318,24 @@ class AvatarScene {
     });
 
     this.scene.add(g);
+    this.centerCameraOnHead();
+  }
+
+  centerCameraOnHead() {
+    if (!this.camera) return;
+    let headPos = new THREE.Vector3(0, 1.43, 0);
+    if (this.head) {
+      this.head.updateMatrixWorld(true);
+      const temp = new THREE.Vector3();
+      this.head.getWorldPosition(temp);
+      if (temp.y > 0.3) {
+        headPos.copy(temp);
+      }
+    }
+    // Zoom in closer (Z distance 1.2 instead of 1.7) to make the avatar larger and easier to see
+    this.camera.position.set(headPos.x, headPos.y - 0.05, headPos.z + 1.2);
+    this.camera.lookAt(headPos.x, headPos.y - 0.05, headPos.z);
+    console.log("InterviewAvatarScene: Camera dynamically centered on head:", headPos);
   }
 
   setState(s: AnimState) {
@@ -300,7 +346,9 @@ class AvatarScene {
 
   loop() {
     if (this.disposed) return;
+    if (this._paused) return;
     this.raf = requestAnimationFrame(() => this.loop());
+
     const dt = this.clock.getDelta();
     const et = this.clock.getElapsedTime();
     this.animT += dt;
@@ -452,7 +500,7 @@ class AvatarScene {
   }
 }
 
-export default function VRoidInterviewAvatar({ teacherId = 'priya', animState = 'idle', zoom = 1.6 }: Props) {
+export default function VRoidInterviewAvatar({ teacherId = 'priya', animState = 'idle', zoom = 1.6, visible = true, paused = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<AvatarScene | null>(null);
 
@@ -460,6 +508,7 @@ export default function VRoidInterviewAvatar({ teacherId = 'priya', animState = 
     if (!canvasRef.current) return;
     const scene = new AvatarScene();
     sceneRef.current = scene;
+    scene.paused = paused || !visible;
     try {
       scene.init(canvasRef.current, teacherId);
       scene.setState(animState);
@@ -495,6 +544,12 @@ export default function VRoidInterviewAvatar({ teacherId = 'priya', animState = 
       sceneRef.current.camera.position.z = zoom;
     }
   }, [zoom]);
+
+  useEffect(() => {
+    if (sceneRef.current) {
+      sceneRef.current.paused = paused || !visible;
+    }
+  }, [paused, visible]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>

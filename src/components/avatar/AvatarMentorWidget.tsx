@@ -3,6 +3,8 @@ import { usePersonalAvatarMemory }    from './hooks/usePersonalAvatarMemory';
 import { useFacialEmotionDetection }  from './hooks/useFacialEmotionDetection';
 import * as THREE from 'three';
 import { speakWithAvatar, stopSpeaking } from '@/lib/tts';
+import { toast } from '@/lib/store/useAppStore';
+
 
 type AnimState = 'idle'|'listening'|'thinking'|'talking'|'wave'|'nod'|'shrug';
 
@@ -46,24 +48,40 @@ class AvatarScene {
 
   async tryLoadVRM(teacherId: string){
     const {GLTFLoader}=await import('three/examples/jsm/loaders/GLTFLoader.js');
+    const {DRACOLoader}=await import('three/examples/jsm/loaders/DRACOLoader.js');
     const loader=new GLTFLoader();
+    const dracoLoader=new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    loader.setDRACOLoader(dracoLoader);
     
     // Choose model paths based on selected teacherId
     let paths: string[] = [];
-    if (teacherId === 'rohan') {
-      paths = ['/avatar/akira.vrm', '/avatar/riku.vrm', '/avatar/mentor.vrm'];
-    } else if (teacherId === 'vikram') {
-      paths = ['/avatar/riku.vrm', '/avatar/akira.vrm', '/avatar/mentor.vrm'];
-    } else if (teacherId === 'aisha') {
-      paths = ['/avatar/aisha.vrm', '/avatar/mentor.vrm', '/avatar/akira.vrm', '/avatar/riku.vrm'];
+    const id = teacherId.toLowerCase();
+    if (id === 'priya' || id === 'sneha') {
+      paths = ['/avatar/hana.vrm', '/avatar/yuki.vrm'];
+    } else if (id === 'anish' || id === 'rajesh') {
+      paths = ['/avatar/riku.vrm', '/avatar/akira.vrm'];
+    } else if (id === 'aisha' || id === 'maya') {
+      paths = ['/avatar/yuki.vrm', '/avatar/rei.vrm'];
+    } else if (id === 'rohan') {
+      paths = ['/avatar/akira.vrm', '/avatar/riku.vrm'];
+    } else if (id === 'kashyap' || id === 'karthic' || id === 'aditya') {
+      paths = ['/avatar/sora.vrm', '/avatar/kaito.vrm'];
+    } else if (id === 'divya' || id === 'neha') {
+      paths = ['/avatar/mika.vrm', '/avatar/yuki.vrm'];
+    } else if (id === 'vikram' || id === 'abhijit') {
+      paths = ['/avatar/kaito.vrm', '/avatar/riku.vrm'];
+    } else if (id === 'shalini') {
+      paths = ['/avatar/rei.vrm', '/avatar/yuki.vrm'];
     } else {
-      paths = ['/avatar/priya.vrm', '/avatar/mentor.vrm', '/avatar/akira.vrm', '/avatar/riku.vrm'];
+      paths = ['/avatar/hana.vrm', '/avatar/yuki.vrm', '/avatar/mika.vrm'];
     }
 
     const loadAttempt = (idx: number): Promise<void> => {
       if (idx >= paths.length) return Promise.reject(new Error("No VRMs found"));
       return new Promise<void>((resolve, reject) => {
-        loader.load(paths[idx], gltf => {
+        const resolvedPath = paths[idx].replace('.vrm', '.glb');
+        loader.load(resolvedPath, gltf => {
           this.scene.add(gltf.scene);
           this.isVRM = true;
           this.faceMeshes = [];
@@ -176,6 +194,7 @@ class AvatarScene {
           } else {
             console.warn("VRoidMentorWidget: No face meshes with morph target dictionary found!");
           }
+          this.centerCameraOnHead();
           resolve();
         }, undefined, () => {
           loadAttempt(idx + 1).then(resolve).catch(reject);
@@ -226,6 +245,24 @@ class AvatarScene {
       const shoe=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.055,0.18),mat(0x1a1a1a,0.9)); shoe.position.set(x,0.55,0.025); g.add(shoe);
     });
     this.scene.add(g);
+    this.centerCameraOnHead();
+  }
+
+  centerCameraOnHead() {
+    if (!this.camera) return;
+    let headPos = new THREE.Vector3(0, 1.43, 0);
+    if (this.head) {
+      this.head.updateMatrixWorld(true);
+      const temp = new THREE.Vector3();
+      this.head.getWorldPosition(temp);
+      if (temp.y > 0.3) {
+        headPos.copy(temp);
+      }
+    }
+    // Zoom in closer (Z distance 1.2 instead of 1.7) to make the avatar larger and easier to see
+    this.camera.position.set(headPos.x, headPos.y - 0.05, headPos.z + 1.2);
+    this.camera.lookAt(headPos.x, headPos.y - 0.05, headPos.z);
+    console.log("AvatarScene: Camera dynamically centered on head:", headPos);
   }
 
   setState(s:AnimState){ if(this.animState===s) return; this.animState=s; this.animT=0; }
@@ -404,6 +441,74 @@ interface Props {
   onboardingStep?: number;
   setOnboardingStep?: (s: number) => void;
   activeQuest?: any;
+  onlyAvatar?: boolean;
+  speaking?: boolean;
+  speechText?: string;
+  onTabShift?: (path: string) => void;
+  onEnlarge?: (enlarged: boolean) => void;
+  isEnlarged?: boolean;
+}
+
+
+
+
+// Autocorrelation Pitch Detector (YIN-based thresholding approach)
+function detectPitch(buffer: Float32Array, sampleRate: number): number {
+  const SIZE = buffer.length;
+  let rms = 0;
+
+  for (let i = 0; i < SIZE; i++) {
+    const val = buffer[i];
+    rms += val * val;
+  }
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.008) return -1; // Silent frame
+
+  // Trim silent ends of the frame
+  let r1 = 0;
+  let r2 = SIZE - 1;
+  const thres = 0.002;
+  for (let i = 0; i < SIZE / 2; i++) {
+    if (Math.abs(buffer[i]) > thres) { r1 = i; break; }
+  }
+  for (let i = SIZE - 1; i >= SIZE / 2; i--) {
+    if (Math.abs(buffer[i]) > thres) { r2 = i; break; }
+  }
+
+  const buf = buffer.subarray(r1, r2);
+  const len = buf.length;
+  if (len < 256) return -1; // Not enough samples
+
+  // Autocorrelation calculation
+  const c = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    for (let j = 0; j < len - i; j++) {
+      c[i] += buf[j] * buf[j + i];
+    }
+  }
+
+  // Find peak
+  let d = 0;
+  while (d < len - 1 && c[d] > c[d + 1]) d++;
+  
+  let maxval = -1;
+  let maxpos = -1;
+  for (let i = d; i < len; i++) {
+    if (c[i] > maxval) {
+      maxval = c[i];
+      maxpos = i;
+    }
+  }
+
+  if (maxpos <= 0) return -1;
+
+  const T0 = maxpos;
+  const pitch = sampleRate / T0;
+  
+  if (pitch >= 75 && pitch <= 350) {
+    return pitch;
+  }
+  return -1;
 }
 
 const TEACHER_CONFIG: Record<string, { name: string; color: string; emoji: string }> = {
@@ -424,6 +529,12 @@ export default function AvatarMentorWidget({
   onboardingStep,
   setOnboardingStep,
   activeQuest,
+  onlyAvatar = false,
+  speaking: externalSpeaking,
+  speechText,
+  onTabShift,
+  onEnlarge,
+  isEnlarged = false,
 }: Props) {
   const [input,          setInput]          = useState('');
   const [messages,       setMessages]       = useState<Array<{ role: string; content: string }>>([]);
@@ -431,13 +542,134 @@ export default function AvatarMentorWidget({
   const [speaking,       setSpeaking]       = useState(false);
   const [localMinimized, setLocalMinimized] = useState(false);
   const [mlRecs,         setMlRecs]         = useState<MLRec[]>([]);
+  const [voiceFreq,      setVoiceFreq]      = useState<number | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [isConversing,   setIsConversing]   = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef  = useRef<AvatarScene | null>(null);
   const [aiState, setAiState] = useState<AnimState>('idle');
 
+  const pitchHistoryRef = useRef<number[]>([]);
+  const voiceFreqRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    voiceFreqRef.current = voiceFreq;
+  }, [voiceFreq]);
+
+  // Sync voice print on load
+  useEffect(() => {
+    if (typeof window !== 'undefined' && userId) {
+      const saved = localStorage.getItem(`pinit_${userId}_voice_print_freq`);
+      if (saved) {
+        setVoiceFreq(parseFloat(saved));
+      }
+    }
+  }, [userId]);
+
+  // Single persistent background pitch tracker for speaker validation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let stream: MediaStream | null = null;
+    let audioCtx: AudioContext | null = null;
+    let interval: any = null;
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(s => {
+        stream = s;
+        const SpeechAudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        audioCtx = new SpeechAudioContext();
+        const source = audioCtx.createMediaStreamSource(s);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+
+        const dataArray = new Float32Array(analyser.fftSize);
+
+        interval = setInterval(() => {
+          if (!analyser || !audioCtx) return;
+          analyser.getFloatTimeDomainData(dataArray);
+          const p = detectPitch(dataArray, audioCtx.sampleRate);
+          if (p > 70 && p < 350) {
+            pitchHistoryRef.current.push(p);
+            if (pitchHistoryRef.current.length > 25) {
+              pitchHistoryRef.current.shift(); // keep sliding window of last 2.5 seconds
+            }
+          }
+        }, 100);
+      })
+      .catch(err => {
+        console.warn("Background microphone pitch tracking failed to start:", err);
+      });
+
+    return () => {
+      if (interval) clearInterval(interval);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (audioCtx) audioCtx.close();
+    };
+  }, []);
+
+  const startVoiceRegistration = async () => {
+    if (typeof window === 'undefined') return;
+    setIsRecordingVoice(true);
+    toast.info("Voice Registration Started 🎙️", "Please speak clearly for 2.5 seconds...");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+
+      const bufferLength = analyser.fftSize;
+      const dataArray = new Float32Array(bufferLength);
+      const pitches: number[] = [];
+
+      const interval = setInterval(() => {
+        analyser.getFloatTimeDomainData(dataArray);
+        const pitch = detectPitch(dataArray, audioCtx.sampleRate);
+        if (pitch > 0) {
+          pitches.push(pitch);
+        }
+      }, 100);
+
+      setTimeout(() => {
+        clearInterval(interval);
+        stream.getTracks().forEach(t => t.stop());
+        audioCtx.close();
+        setIsRecordingVoice(false);
+
+        const validPitches = pitches.filter(p => p > 70 && p < 350);
+        if (validPitches.length > 0) {
+          // Sort and slice out top and bottom 20% to remove outliers
+          const sorted = [...validPitches].sort((a, b) => a - b);
+          const startIdx = Math.floor(sorted.length * 0.2);
+          const endIdx = Math.ceil(sorted.length * 0.8);
+          const corePitches = sorted.slice(startIdx, endIdx);
+          
+          const finalPitches = corePitches.length > 0 ? corePitches : validPitches;
+          const avg = finalPitches.reduce((a, b) => a + b, 0) / finalPitches.length;
+          const rounded = Math.round(avg);
+          localStorage.setItem(`pinit_${userId}_voice_print_freq`, rounded.toString());
+          setVoiceFreq(rounded);
+          toast.success("Voice Signature Registered! 🔐", `Owner voice print locked at ${rounded}Hz.`);
+          speakReply(`Voice print registered successfully at ${rounded} Hertz! Voice command lock is now active.`);
+        } else {
+          toast.error("Registration Failed", "No clear voice pitch detected. Please try again in a quiet room.");
+        }
+      }, 2500);
+
+    } catch (err) {
+      console.warn("Failed voice registration:", err);
+      toast.error("Microphone Error", "Could not access microphone for voice registration.");
+      setIsRecordingVoice(false);
+    }
+  };
+
   // Voice recognition & Subtitle states
+
   const [recognizing, setRecognizing] = useState(false);
   const [subtitle, setSubtitle] = useState('');
   const [subtitleRole, setSubtitleRole] = useState<'user' | 'assistant' | 'system' | null>(null);
@@ -491,6 +723,13 @@ export default function AvatarMentorWidget({
       setAiState('idle');
     }
   }, [loading, speaking]);
+
+  // Sync speaking state from props if provided
+  useEffect(() => {
+    if (externalSpeaking !== undefined) {
+      setSpeaking(externalSpeaking);
+    }
+  }, [externalSpeaking]);
 
   // Silence speech on minimize
   useEffect(() => {
@@ -576,6 +815,173 @@ export default function AvatarMentorWidget({
     });
     setSubtitle(msg);
     setSubtitleRole('user');
+
+    // ── Client-side navigation & conversational command parser ──
+    const lower = msg.toLowerCase();
+
+    // 1. Exit conversational mode check
+    if (isConversing && (lower.includes('bye') || lower.includes('goodbye') || lower.includes('stop talking') || lower.includes('minimize') || lower.includes('close'))) {
+      setIsConversing(false);
+      if (onEnlarge) onEnlarge(false);
+      const exitReply = `Goodbye! Let me know whenever you want to talk again.`;
+      setMessages(prev => [...prev, { role: 'assistant', content: exitReply }]);
+      await speakReply(exitReply);
+      return;
+    }
+
+    // 2. Priority check check
+    if (lower.includes('priority') || lower.includes('what to do') || lower.includes('preyourrity') || lower.includes('preyourity')) {
+      const recommendation = (() => {
+        const streak = careerProfile?.mission_streak || 0;
+        const trust = careerProfile?.trust_score || 0;
+        const vault = careerProfile?.vault_count || 0;
+
+        if (streak === 0) {
+          return {
+            title: "Start your daily mission streak",
+            desc: "Complete one mission today to start building your streak, which directly raises your Career DNA score.",
+            targetPath: "/missions",
+            tab: "Missions"
+          };
+        }
+        if (trust < 50) {
+          return {
+            title: "Build your Trust Score",
+            desc: "Verify a skill or add a document to your vault to make your profile visible to active SDE recruiters.",
+            targetPath: "/vault",
+            tab: "Vault"
+          };
+        }
+        if (vault === 0) {
+          return {
+            title: "Add your first vault document",
+            desc: "Upload certifications or project proof to verify your skills and raise your trust index.",
+            targetPath: "/vault",
+            tab: "Vault"
+          };
+        }
+        return {
+          title: "Maintain your daily streak",
+          desc: "Today's missions are ready. Complete a challenge to build your consistency metric.",
+          targetPath: "/missions",
+          tab: "Missions"
+        };
+      })();
+
+      const reply = `Your top career priority right now is to ${recommendation.title}. ${recommendation.desc} Shifting you to the ${recommendation.tab} tab now.`;
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      await speakReply(reply);
+      if (onTabShift) {
+        setTimeout(() => {
+          onTabShift(recommendation.targetPath);
+        }, 1200);
+      }
+      return;
+    }
+
+    // 3. Start Quest / Start Mission check
+    if (lower.includes('start mission') || lower.includes('begin mission') || lower.includes('play mission')) {
+      const reply = "Sure, starting your daily boardroom crisis roleplay mission now! Loading Socratic simulation.";
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      await speakReply(reply);
+      if (onTabShift) {
+        setTimeout(() => {
+          onTabShift('/missions?roleplay=true');
+        }, 800);
+      }
+      return;
+    }
+
+    if (lower.includes('start quest') || lower.includes('begin quest') || lower.includes('play quest')) {
+      const reply = "Sure! Opening your custom quest learning roadmap now. Select a quest module to begin.";
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      await speakReply(reply);
+      if (onTabShift) {
+        setTimeout(() => {
+          onTabShift('/quests');
+        }, 800);
+      }
+      return;
+    }
+
+    // 4. Conversational talk mode check
+    if (lower.includes('talk with u') || lower.includes('want to talk') || lower.includes('chat with u') || lower.includes('talk to you')) {
+      setIsConversing(true);
+      if (onEnlarge) onEnlarge(true);
+      const talkReply = `Yes, I am here! What do you want to talk about? Let me help you prepare for SDE roleplays, or brainstorm your next system design concepts. Just speak up, I am listening!`;
+      setMessages(prev => [...prev, { role: 'assistant', content: talkReply }]);
+      await speakReply(talkReply);
+      return;
+    }
+
+    const isNavigation = 
+      lower.includes('shift') || 
+      lower.includes('switch') || 
+      lower.includes('swap') || 
+      lower.includes('go to') || 
+      lower.includes('navigate') || 
+      lower.includes('open') || 
+      lower.includes('show');
+
+    if (isNavigation) {
+      let targetPath = '';
+      let tabName = '';
+
+      if (lower.includes('home') || lower.includes('dashboard')) {
+        targetPath = '/dashboard';
+        tabName = 'Home Dashboard';
+      } else if (lower.includes('career-builder') || lower.includes('builder') || lower.includes('roadmap') || lower.includes('resume')) {
+        targetPath = '/career-builder';
+        tabName = 'Career Builder';
+      } else if (lower.includes('quest') || lower.includes('learn')) {
+        targetPath = '/quests';
+        tabName = 'Quests';
+      } else if (lower.includes('mission') || lower.includes('daily')) {
+        targetPath = '/missions';
+        tabName = 'Daily Missions';
+      } else if (lower.includes('interview') || lower.includes('mock')) {
+        targetPath = '/interview';
+        tabName = 'AI Interview';
+      } else if (lower.includes('twin')) {
+        targetPath = '/career-twin';
+        tabName = 'Career Twin';
+      } else if (lower.includes('dna')) {
+        targetPath = '/career-dna';
+        tabName = 'Career DNA';
+      } else if (lower.includes('opportunit') || lower.includes('job')) {
+        targetPath = '/opportunities';
+        tabName = 'Opportunities';
+      } else if (lower.includes('discussion') || lower.includes('boardroom') || lower.includes('debate')) {
+        targetPath = '/group-discussion';
+        tabName = 'Group Discussion';
+      } else if (lower.includes('vault') || lower.includes('document')) {
+        targetPath = '/vault';
+        tabName = 'Vault';
+      } else if (lower.includes('pricing') || lower.includes('plan') || lower.includes('pin')) {
+        targetPath = '/pricing';
+        tabName = 'Pins & Plans';
+      } else if (lower.includes('profile') || lower.includes('settings')) {
+        targetPath = '/profile';
+        tabName = 'Profile';
+      } else if (lower.includes('notification')) {
+        targetPath = '/notifications';
+        tabName = 'Notifications';
+      }
+
+      if (targetPath) {
+        const confirmation = `Sure! Shifting you to the ${tabName} tab now.`;
+        setMessages(prev => [...prev, { role: 'assistant', content: confirmation }]);
+        await speakReply(confirmation);
+        if (onTabShift) {
+          setTimeout(() => {
+            onTabShift(targetPath);
+          }, 800);
+        }
+        return; // Complete local intercept, bypass server call
+      }
+    }
+
+
     setLoading(true);
 
     const emotionalCtx = emotionAI.getEmotionalContext(msg);
@@ -606,7 +1012,8 @@ export default function AvatarMentorWidget({
     } finally {
       setLoading(false);
     }
-  }, [input, loading, careerProfile, teacherId, memory, emotionAI]);
+  }, [input, loading, careerProfile, teacherId, memory, emotionAI, onTabShift]);
+
 
   async function speakReply(text: string) {
     setSubtitle(text);
@@ -622,12 +1029,17 @@ export default function AvatarMentorWidget({
   // Keep track of latest speaking/loading states in refs to avoid stale closures in SpeechRecognition handlers
   const speakingRef = useRef(speaking);
   const loadingRef = useRef(loading);
+  const conversingRef = useRef(isConversing);
   useEffect(() => {
     speakingRef.current = speaking;
   }, [speaking]);
   useEffect(() => {
     loadingRef.current = loading;
   }, [loading]);
+  useEffect(() => {
+    conversingRef.current = isConversing;
+  }, [isConversing]);
+
 
   // Background Speech Recognition for Wake Words
   useEffect(() => {
@@ -660,9 +1072,45 @@ export default function AvatarMentorWidget({
           const transcript = e.results[0]?.[0]?.transcript;
           if (!transcript) return;
 
+          // ── Owner Voice Signature Lock Check ──
+          if (voiceFreqRef.current) {
+            const validPitches = pitchHistoryRef.current.slice(-12); // Check last 1.2 seconds of speech
+            if (validPitches.length > 0) {
+              // Sort and slice out top and bottom 20% to remove outliers
+              const sorted = [...validPitches].sort((a, b) => a - b);
+              const startIdx = Math.floor(sorted.length * 0.2);
+              const endIdx = Math.ceil(sorted.length * 0.8);
+              const corePitches = sorted.slice(startIdx, endIdx);
+              
+              const finalPitches = corePitches.length > 0 ? corePitches : validPitches;
+              const avgPitch = finalPitches.reduce((a, b) => a + b, 0) / finalPitches.length;
+              const diff = Math.abs(avgPitch - voiceFreqRef.current) / voiceFreqRef.current;
+              console.log(`[Voice Lock] Stored: ${voiceFreqRef.current}Hz | Trimmed Live: ${avgPitch.toFixed(1)}Hz | Diff: ${(diff * 100).toFixed(1)}%`);
+
+              if (diff > 0.30) { // Widened tolerance window to 30% to accommodate normal speech fluctuations
+                console.warn("[Voice Lock] Voice verification failed! Mismatch pitch.");
+                toast.error("Voice Lock Refused 🔐", "Speaker signature mismatch. Command ignored.");
+                speakReply("Voice signature mismatch. I can only follow commands from my registered owner.");
+                return;
+              }
+            } else {
+              console.log("[Voice Lock] No sliding window pitch data recorded. Requesting repeat.");
+              toast.error("Verification Timed Out 🔐", "Please speak clearly closer to your microphone.");
+              speakReply("Sorry, I could not verify your voice signature. Please try again.");
+              return;
+            }
+          }
+
           const text = transcript.trim().toLowerCase();
           const activeTeacherKey = teacherId.toLowerCase();
           
+          // If we are in active conversation mode, send everything directly without requiring the wake word!
+          if (conversingRef.current) {
+            console.log("[Conversing] Direct speech parsed:", transcript);
+            sendMessage(transcript);
+            return;
+          }
+
           // Match wake word: "priya", "hey priya", "hi priya" or active teacher names
           const matchesWakeWord = 
             text.includes('priya') || 
@@ -730,6 +1178,8 @@ export default function AvatarMentorWidget({
 
   // Auto-close (minimize) timer when not responding/speaking
   useEffect(() => {
+    if (onlyAvatar) return;
+    if (minimized === false) return;
     // If minimized, do nothing
     if (isMinimized) return;
 
@@ -749,19 +1199,206 @@ export default function AvatarMentorWidget({
     return () => {
       clearTimeout(timer);
     };
-  }, [loading, speaking, isMinimized, input, setIsMinimized]);
+  }, [loading, speaking, isMinimized, input, setIsMinimized, onlyAvatar]);
 
-  if (isMinimized) {
+  if (isMinimized && !onlyAvatar) {
     return (
-      <button onClick={() => setIsMinimized(false)} style={{
-        position:'fixed', bottom:24, right:24, zIndex:100,
-        width:58, height:58, borderRadius:'50%',
-        background: teacher.color, border:'none', cursor:'pointer',
-        fontSize:26, boxShadow:`0 4px 20px ${teacher.color}60`,
-        display:'flex', alignItems:'center', justifyContent:'center',
-      }} title={`Open ${teacher.name}`}>
+      <button 
+        onClick={() => setIsMinimized(false)} 
+        style={{
+          position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', zIndex:100,
+          width:58, height:58, borderRadius:'50%',
+          background: teacher.color, border:'none', cursor:'pointer',
+          fontSize:26, boxShadow:`0 4px 20px ${teacher.color}60`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          opacity: 0.75,
+          transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateX(-50%) scale(1.08)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.75'; e.currentTarget.style.transform = 'translateX(-50%) scale(1)'; }}
+        title={`Open ${teacher.name}`}
+      >
         {teacher.emoji}
       </button>
+    );
+  }
+
+  const renderChatPanel = (
+    <div style={{ flex: isEnlarged ? 1.4 : 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg2)' }}>
+      {/* Messages List Container */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {messages.map((m, i) => {
+          const isUser = m.role === 'user';
+          return (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                justifyContent: isUser ? 'flex-end' : 'flex-start',
+                alignItems: 'flex-start',
+                gap: 8,
+                maxWidth: '85%',
+                alignSelf: isUser ? 'flex-end' : 'flex-start',
+              }}
+            >
+              {!isUser && (
+                <span style={{ fontSize: 20, marginTop: 4, flexShrink: 0 }}>
+                  {teacher.emoji}
+                </span>
+              )}
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 14,
+                  fontSize: 12.5,
+                  lineHeight: 1.5,
+                  background: isUser ? teacher.color : 'var(--bg3)',
+                  color: isUser ? '#ffffff' : 'var(--t1)',
+                  border: isUser ? 'none' : '1px solid var(--border)',
+                  boxShadow: 'var(--shadow-sm)',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {m.content}
+              </div>
+            </div>
+          );
+        })}
+        {loading && (
+          <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start', alignItems: 'center', color: 'var(--t3)', fontSize: 12, paddingLeft: 28 }}>
+            <span>{teacher.emoji}</span>
+            <div style={{
+              background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', gap: 4, alignItems: 'center'
+            }}>
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--t3)', animation: 'pulse 1.2s infinite ease-in-out' }}></span>
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--t3)', animation: 'pulse 1.2s infinite ease-in-out 0.2s' }}></span>
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--t3)', animation: 'pulse 1.2s infinite ease-in-out 0.4s' }}></span>
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Quick Suggestion Prompts */}
+      <div style={{
+        display: 'flex',
+        gap: 6,
+        padding: '8px 12px',
+        overflowX: 'auto',
+        borderTop: '1px solid var(--border)',
+        background: 'var(--bg3)',
+        flexShrink: 0,
+        scrollbarWidth: 'none',
+      }}>
+        {quickPrompts.map((promptText, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => {
+              const cleanedText = promptText.replace(/^[^a-zA-Z0-9]+/, '').trim();
+              sendMessage(cleanedText);
+            }}
+            style={{
+              whiteSpace: 'nowrap',
+              padding: '6px 12px',
+              borderRadius: 20,
+              border: '1px solid var(--border)',
+              background: 'var(--bg2)',
+              color: 'var(--t2)',
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            className="quick-prompt-pill"
+          >
+            {promptText}
+          </button>
+        ))}
+      </div>
+
+      {/* Input Bar */}
+      <form
+        onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
+        style={{
+          display: 'flex',
+          gap: 8,
+          padding: 10,
+          borderTop: '1px solid var(--border)',
+          background: 'var(--bg2)',
+          alignItems: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={`Ask ${teacher.name} a question...`}
+          style={{
+            flex: 1,
+            padding: '9px 14px',
+            borderRadius: 20,
+            border: '1px solid var(--border)',
+            background: 'var(--bg3)',
+            color: 'var(--t1)',
+            fontSize: 12.5,
+            outline: 'none',
+          }}
+          disabled={loading}
+        />
+        <button
+          type="submit"
+          disabled={!input.trim() || loading}
+          style={{
+            background: input.trim() && !loading ? teacher.color : 'var(--bg3)',
+            color: input.trim() && !loading ? '#ffffff' : 'var(--t3)',
+            border: 'none',
+            borderRadius: '50%',
+            width: 34,
+            height: 34,
+            cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 14,
+            transition: 'all 0.15s',
+            boxShadow: input.trim() && !loading ? `0 2px 8px ${teacher.color}40` : 'none',
+          }}
+        >
+          ➔
+        </button>
+      </form>
+      
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { transform: scale(0.6); opacity: 0.4; }
+          50% { transform: scale(1.1); opacity: 1; }
+        }
+        .quick-prompt-pill:hover {
+          border-color: var(--accent) !important;
+          color: var(--accent) !important;
+          background: var(--accent-light) !important;
+        }
+      `}</style>
+    </div>
+  );
+
+  if (onlyAvatar) {
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+        <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+        {aiState !== 'idle' && (
+          <div style={{
+            position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700,
+            padding: '2px 6px', borderRadius: 4, background: 'rgba(0,0,0,0.6)',
+            color: aiState === 'talking' ? '#a5b4fc' : aiState === 'thinking' ? '#fde68a' : '#86efac',
+            backdropFilter: 'blur(4px)', fontFamily: 'var(--font-mono)', zIndex: 10
+          }}>
+            {aiState === 'talking' ? '🎙 Speaking' : aiState === 'thinking' ? '💭 Thinking' : aiState === 'listening' ? '👂 Listening' : aiState === 'wave' ? '👋 Hi there' : '✓ Active'}
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -776,185 +1413,77 @@ export default function AvatarMentorWidget({
             <p className="mentor-subtitle" style={{ fontSize: '10.5px' }}>Career Mentor {speaking ? '🔊' : ''} · {mlRecs.length > 0 ? `${mlRecs.length} ML tips` : 'AI powered'}</p>
           </div>
         </div>
-        <div className="mentor-controls" style={{ display: 'flex', alignItems: 'center' }}>
+        <div className="mentor-controls" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {voiceFreq ? (
+            <span 
+              onClick={() => {
+                if (confirm("Reset voice lock signature?")) {
+                  localStorage.removeItem(`pinit_${userId}_voice_print_freq`);
+                  setVoiceFreq(null);
+                  toast.info("Voice Lock Reset", "Owner voice lock is now disabled.");
+                }
+              }}
+              style={{ fontSize: 9, background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: 4, color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+              title="Voice lock active. Click to reset."
+            >
+              🔐 Voice Lock
+            </span>
+          ) : (
+            <span 
+              onClick={startVoiceRegistration}
+              style={{ fontSize: 9, background: isRecordingVoice ? 'var(--coral)' : 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 4, color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+              title="Click to register your voice print signature"
+            >
+              {isRecordingVoice ? '🎙️ Speaking...' : '🎙️ Register Voice'}
+            </span>
+          )}
           <button onClick={() => setIsMinimized(true)} className="minimize-btn" title="Minimize">_</button>
         </div>
       </div>
 
-      {/* 3D WebGL Avatar Viewport - fixed height so there's plenty of space for chat */}
-      <div style={{ position: 'relative', height: 200, background: 'var(--bg3)', overflow: 'hidden', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
-        <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
-        {aiState !== 'idle' && (
-          <div style={{
-            position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700,
-            padding: '2px 6px', borderRadius: 4, background: 'rgba(0,0,0,0.6)',
-            color: aiState === 'talking' ? '#a5b4fc' : aiState === 'thinking' ? '#fde68a' : '#86efac',
-            backdropFilter: 'blur(4px)', fontFamily: 'var(--font-mono)'
-          }}>
-            {aiState === 'talking' ? '🎙 Speaking' : aiState === 'thinking' ? '💭 Thinking' : aiState === 'listening' ? '👂 Listening' : aiState === 'wave' ? '👋 Hi there' : '✓ Active'}
-          </div>
-        )}
-      </div>
-
-      {/* Socratic Chat Panel Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg2)' }}>
-        {/* Messages List Container */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {messages.map((m, i) => {
-            const isUser = m.role === 'user';
-            return (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  justifyContent: isUser ? 'flex-end' : 'flex-start',
-                  alignItems: 'flex-start',
-                  gap: 8,
-                  maxWidth: '85%',
-                  alignSelf: isUser ? 'flex-end' : 'flex-start',
-                }}
-              >
-                {!isUser && (
-                  <span style={{ fontSize: 20, marginTop: 4, flexShrink: 0 }}>
-                    {teacher.emoji}
-                  </span>
-                )}
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 14,
-                    fontSize: 12.5,
-                    lineHeight: 1.5,
-                    background: isUser ? teacher.color : 'var(--bg3)',
-                    color: isUser ? '#ffffff' : 'var(--t1)',
-                    border: isUser ? 'none' : '1px solid var(--border)',
-                    boxShadow: 'var(--shadow-sm)',
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
-                  {m.content}
-                </div>
-              </div>
-            );
-          })}
-          {loading && (
-            <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start', alignItems: 'center', color: 'var(--t3)', fontSize: 12, paddingLeft: 28 }}>
-              <span>{teacher.emoji}</span>
+      {isEnlarged ? (
+        /* Horizontal Split Pane for Enlarged View */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
+          {/* Left Column: Avatar Canvas */}
+          <div style={{ position: 'relative', flex: 1.1, background: 'var(--bg3)', overflow: 'hidden', borderRight: '1px solid var(--border)' }}>
+            <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+            {aiState !== 'idle' && (
               <div style={{
-                background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 14, padding: '10px 16px', display: 'flex', gap: 4, alignItems: 'center'
+                position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700,
+                padding: '2px 6px', borderRadius: 4, background: 'rgba(0,0,0,0.6)',
+                color: aiState === 'talking' ? '#a5b4fc' : aiState === 'thinking' ? '#fde68a' : '#86efac',
+                backdropFilter: 'blur(4px)', fontFamily: 'var(--font-mono)'
               }}>
-                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--t3)', animation: 'pulse 1.2s infinite ease-in-out' }}></span>
-                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--t3)', animation: 'pulse 1.2s infinite ease-in-out 0.2s' }}></span>
-                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--t3)', animation: 'pulse 1.2s infinite ease-in-out 0.4s' }}></span>
+                {aiState === 'talking' ? '🎙 Speaking' : aiState === 'thinking' ? '💭 Thinking' : aiState === 'listening' ? '👂 Listening' : aiState === 'wave' ? '👋 Hi there' : '✓ Active'}
               </div>
-            </div>
-          )}
-          <div ref={bottomRef} />
+            )}
+          </div>
+
+          {/* Right Column: Chat Panel */}
+          {renderChatPanel}
         </div>
-
-        {/* Quick Suggestion Prompts */}
-        <div style={{
-          display: 'flex',
-          gap: 6,
-          padding: '8px 12px',
-          overflowX: 'auto',
-          borderTop: '1px solid var(--border)',
-          background: 'var(--bg3)',
-          flexShrink: 0,
-          scrollbarWidth: 'none',
-        }}>
-          {quickPrompts.map((promptText, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => {
-                const cleanedText = promptText.replace(/^[^a-zA-Z0-9]+/, '').trim();
-                sendMessage(cleanedText);
-              }}
-              style={{
-                whiteSpace: 'nowrap',
-                padding: '6px 12px',
-                borderRadius: 20,
-                border: '1px solid var(--border)',
-                background: 'var(--bg2)',
-                color: 'var(--t2)',
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              className="quick-prompt-pill"
-            >
-              {promptText}
-            </button>
-          ))}
-        </div>
-
-        {/* Input Bar */}
-        <form
-          onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
-          style={{
-            display: 'flex',
-            gap: 8,
-            padding: 10,
-            borderTop: '1px solid var(--border)',
-            background: 'var(--bg2)',
-            alignItems: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={`Ask ${teacher.name} a question...`}
-            style={{
-              flex: 1,
-              padding: '9px 14px',
-              borderRadius: 20,
-              border: '1px solid var(--border)',
-              background: 'var(--bg3)',
-              color: 'var(--t1)',
-              fontSize: 12.5,
-              outline: 'none',
-            }}
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || loading}
-            style={{
-              background: input.trim() && !loading ? teacher.color : 'var(--bg3)',
-              color: input.trim() && !loading ? '#ffffff' : 'var(--t3)',
-              border: 'none',
-              borderRadius: '50%',
-              width: 34,
-              height: 34,
-              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
-              transition: 'all 0.15s',
-              boxShadow: input.trim() && !loading ? `0 2px 8px ${teacher.color}40` : 'none',
-            }}
-          >
-            ➔
-          </button>
-        </form>
-      </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(0.6); opacity: 0.4; }
-          50% { transform: scale(1.1); opacity: 1; }
-        }
-        .quick-prompt-pill:hover {
-          border-color: var(--accent) !important;
-          color: var(--accent) !important;
-          background: var(--accent-light) !important;
-        }
-      `}</style>
+      ) : (
+        /* Vertical Stack Pane for Default/Docked View */
+        <>
+          {/* 3D WebGL Avatar Viewport - top */}
+          <div style={{ position: 'relative', height: 200, background: 'var(--bg3)', overflow: 'hidden', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
+            <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+            {aiState !== 'idle' && (
+              <div style={{
+                position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700,
+                padding: '2px 6px', borderRadius: 4, background: 'rgba(0,0,0,0.6)',
+                color: aiState === 'talking' ? '#a5b4fc' : aiState === 'thinking' ? '#fde68a' : '#86efac',
+                backdropFilter: 'blur(4px)', fontFamily: 'var(--font-mono)'
+              }}>
+                {aiState === 'talking' ? '🎙 Speaking' : aiState === 'thinking' ? '💭 Thinking' : aiState === 'listening' ? '👂 Listening' : aiState === 'wave' ? '👋 Hi there' : '✓ Active'}
+              </div>
+            )}
+          </div>
+          {/* Chat Panel - bottom */}
+          {renderChatPanel}
+        </>
+      )}
     </div>
   );
+
 }
