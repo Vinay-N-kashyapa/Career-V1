@@ -107,11 +107,37 @@ export function preloadTTS() {
   // No-op: Render Cloud backend is always preloaded
 }
 
+// Cache to store pre-generated audio buffer for the next slide
+let preloadedAudioCache: { text: string; teacherId: string; buffer: Float32Array; sampleRate: number } | null = null;
+
 /**
  * Pre-generates the audio buffer for the next slide's dialogue silently in the background.
  */
 export async function preloadNextSpeech(text: string, teacherId: string) {
-  // Disabled to save CPU
+  if (!text) return;
+  try {
+    let sanitized = text
+      .replace(/^\[.*?\]:\s?/, '')
+      .replace(/^[a-zA-Z\s\.\-]+:\s?/, '');
+
+    sanitized = sanitized
+      .replace(/\*.*?\*/g, '')
+      .replace(/\[.*?\]/g, '')
+      .replace(/\(.*?\)/g, '');
+
+    const cleanText = sanitized.replace(/[✦🤖👋🎯💼🔐🔬⚡✨✓⬡*`_#]/g, '').trim();
+    if (!cleanText) return;
+
+    const enhancedText = enhanceTextIntonation(cleanText);
+    const vibe = detectVibe(enhancedText);
+
+    console.log("[TTS] Preloading next speech in background...");
+    const res = await generateTTSAudio(enhancedText, teacherId, vibe);
+    preloadedAudioCache = { text: cleanText, teacherId, buffer: res.buffer, sampleRate: res.sampleRate };
+    console.log("[TTS] Preload complete for text:", cleanText.substring(0, 35));
+  } catch (err: any) {
+    console.warn("[TTS] Background preloading failed:", err.message);
+  }
 }
 
 export function stopSpeaking() {
@@ -272,6 +298,34 @@ export async function speakWithAvatar(
 
   const enhancedText = enhanceTextIntonation(cleanText);
   const vibe = detectVibe(enhancedText);
+
+  // Play immediately if we have a match in the preloaded background cache!
+  if (useNeural && isNeuralReady && preloadedAudioCache && preloadedAudioCache.text === cleanText && preloadedAudioCache.teacherId === teacherId) {
+    try {
+      console.log("[TTS] Playing instantly from background preload cache! 🚀");
+      const { buffer, sampleRate } = preloadedAudioCache;
+      preloadedAudioCache = null; // Clear cache once consumed
+      
+      const ctx = getAudioContext(sampleRate);
+      const audioBuf = ctx.createBuffer(1, buffer.length, sampleRate);
+      audioBuf.copyToChannel(buffer as any, 0);
+
+      const source = ctx.createBufferSource();
+      activeSource = source;
+      source.buffer = audioBuf;
+
+      source.connect(ctx.destination);
+      source.onended = () => {
+        if (activeSource === source) activeSource = null;
+        onEnd();
+      };
+      onStart();
+      source.start(0);
+      return;
+    } catch (err: any) {
+      console.warn('[TTS] Failed to play from preload cache, falling back to network fetch:', err.message);
+    }
+  }
 
   // Local Web Worker (Kokoro / KittenTTS Nano) - Offline, browser-native execution
   if (useNeural && isNeuralReady) {
