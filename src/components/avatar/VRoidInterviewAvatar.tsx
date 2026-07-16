@@ -45,6 +45,7 @@ class AvatarScene {
   faceMeshes: THREE.Mesh[] = [];
   morphMaps: Map<THREE.Mesh, Record<string, number>> = new Map();
   vowelTimer = 0;
+  nextVowelTime = 0.11;
   currentVowel = 'silence';
   currentInfluences: Record<string, number> = { A: 0, I: 0, U: 0, E: 0, O: 0 };
   proceduralMouth?: THREE.Mesh;
@@ -139,42 +140,44 @@ class AvatarScene {
               }
             }
 
-            const nameLower = obj.name.toLowerCase();
-            
-            // Check for Head and Neck
-            if (nameLower.includes('head') && !nameLower.includes('hair') && !nameLower.includes('forehead')) {
-              this.head = obj;
-            }
-            if (nameLower.includes('neck')) {
-              this.neck = obj;
-            }
-            if (nameLower.includes('spine') || nameLower.includes('chest') || nameLower.includes('upperchest')) {
-              this.spine = obj;
-            }
-
-            // Check for Shoulders
-            if (nameLower.includes('shoulder') || nameLower.includes('clavicle')) {
-              if (nameLower.includes('left') || nameLower.includes('_l_') || nameLower.startsWith('l_') || nameLower.includes('bip_l') || nameLower.endsWith('_l') || nameLower.endsWith('.l')) {
-                this.leftShoulder = obj;
-              } else if (nameLower.includes('right') || nameLower.includes('_r_') || nameLower.startsWith('r_') || nameLower.includes('bip_r') || nameLower.endsWith('_r') || nameLower.endsWith('.r')) {
-                this.rightShoulder = obj;
+            if (obj.isBone || obj.type === 'Bone') {
+              const nameLower = obj.name.toLowerCase();
+              
+              // Check for Head and Neck
+              if (nameLower.includes('head') && !nameLower.includes('hair') && !nameLower.includes('forehead')) {
+                this.head = obj;
               }
-            }
+              if (nameLower.includes('neck')) {
+                this.neck = obj;
+              }
+              if (nameLower.includes('spine') || nameLower.includes('chest') || nameLower.includes('upperchest')) {
+                this.spine = obj;
+              }
 
-            // Check for Upper Arms
-            const isArm = (nameLower.includes('arm') || nameLower.includes('upperarm')) && 
-                          !nameLower.includes('forearm') && 
-                          !nameLower.includes('lowerarm') && 
-                          !nameLower.includes('hand') && 
-                          !nameLower.includes('finger') &&
-                          !nameLower.includes('shoulder') &&
-                          !nameLower.includes('clavicle');
+              // Check for Shoulders
+              if (nameLower.includes('shoulder') || nameLower.includes('clavicle')) {
+                if (nameLower.includes('left') || nameLower.includes('_l_') || nameLower.startsWith('l_') || nameLower.includes('bip_l') || nameLower.endsWith('_l') || nameLower.endsWith('.l')) {
+                  this.leftShoulder = obj;
+                } else if (nameLower.includes('right') || nameLower.includes('_r_') || nameLower.startsWith('r_') || nameLower.includes('bip_r') || nameLower.endsWith('_r') || nameLower.endsWith('.r')) {
+                  this.rightShoulder = obj;
+                }
+              }
 
-            if (isArm || nameLower.includes('upperarm')) {
-              if (nameLower.includes('left') || nameLower.includes('_l_') || nameLower.startsWith('l_') || nameLower.includes('bip_l') || nameLower.endsWith('_l') || nameLower.endsWith('.l')) {
-                this.leftArm = obj;
-              } else if (nameLower.includes('right') || nameLower.includes('_r_') || nameLower.startsWith('r_') || nameLower.includes('bip_r') || nameLower.endsWith('_r') || nameLower.endsWith('.r')) {
-                this.rightArm = obj;
+              // Check for Upper Arms
+              const isArm = (nameLower.includes('arm') || nameLower.includes('upperarm')) && 
+                            !nameLower.includes('forearm') && 
+                            !nameLower.includes('lowerarm') && 
+                            !nameLower.includes('hand') && 
+                            !nameLower.includes('finger') &&
+                            !nameLower.includes('shoulder') &&
+                            !nameLower.includes('clavicle');
+
+              if (isArm || nameLower.includes('upperarm')) {
+                if (nameLower.includes('left') || nameLower.includes('_l_') || nameLower.startsWith('l_') || nameLower.includes('bip_l') || nameLower.endsWith('_l') || nameLower.endsWith('.l')) {
+                  this.leftArm = obj;
+                } else if (nameLower.includes('right') || nameLower.includes('_r_') || nameLower.startsWith('r_') || nameLower.includes('bip_r') || nameLower.endsWith('_r') || nameLower.endsWith('.r')) {
+                  this.rightArm = obj;
+                }
               }
             }
           });
@@ -373,17 +376,21 @@ class AvatarScene {
     if (this.head) {
       const s = this.animState;
       if (s === 'idle') {
-        this.head.rotation.y = Math.sin(et * 0.3) * 0.06;
-        this.head.rotation.x = Math.sin(et * 0.2) * 0.03 + 0.02;
-        this.head.rotation.z = Math.sin(et * 0.15) * 0.02;
-        if (this.neck) this.neck.rotation.y = Math.sin(et * 0.3) * 0.02;
+        // Subtle desynchronized look-around sway to prevent robotic U-shape patterns
+        this.head.rotation.y = Math.sin(et * 0.13) * 0.035 + Math.cos(et * 0.07) * 0.015;
+        this.head.rotation.x = Math.cos(et * 0.11) * 0.018 + Math.sin(et * 0.05) * 0.007 + 0.015;
+        this.head.rotation.z = Math.sin(et * 0.08) * 0.008;
+        if (this.neck) this.neck.rotation.y = Math.sin(et * 0.13) * 0.01;
       } else if (s === 'nod') {
         this.head.rotation.x = Math.sin(this.animT * 6.5) * 0.16 + 0.02;
         this.head.rotation.y = THREE.MathUtils.lerp(this.head.rotation.y, 0, 0.1);
         this.head.rotation.z = THREE.MathUtils.lerp(this.head.rotation.z, 0, 0.1);
       } else if (s === 'thinking') {
-        this.head.rotation.x = THREE.MathUtils.lerp(this.head.rotation.x, 0.05, 0.08);
-        this.head.rotation.y = THREE.MathUtils.lerp(this.head.rotation.y, 0.12, 0.08);
+        // Slow thinking posture with subtle desynchronized head drift
+        const targetX = 0.05 + Math.sin(et * 0.6) * 0.01;
+        const targetY = 0.12 + Math.cos(et * 0.5) * 0.015;
+        this.head.rotation.x = THREE.MathUtils.lerp(this.head.rotation.x, targetX, 0.08);
+        this.head.rotation.y = THREE.MathUtils.lerp(this.head.rotation.y, targetY, 0.08);
         this.head.rotation.z = THREE.MathUtils.lerp(this.head.rotation.z, 0.08, 0.08);
       } else if (s === 'shrug') {
         this.head.rotation.x = THREE.MathUtils.lerp(this.head.rotation.x, -0.05, 0.08);
@@ -449,10 +456,11 @@ class AvatarScene {
       const isTalking = this.animState === 'talking';
       if (isTalking) {
         this.vowelTimer += dt;
-        if (this.vowelTimer > 0.11) {
+        if (this.vowelTimer > this.nextVowelTime) {
           this.vowelTimer = 0;
-          const vowels = ['A', 'I', 'U', 'E', 'O', 'silence', 'silence'];
-          this.currentVowel = vowels[Math.floor(Math.random() * vowels.length)];
+          this.nextVowelTime = 0.08 + Math.random() * 0.08; // Variable syllable duration
+          const speechVowels = ['A', 'A', 'I', 'U', 'E', 'O', 'O', 'silence'];
+          this.currentVowel = speechVowels[Math.floor(Math.random() * speechVowels.length)];
         }
       } else {
         this.currentVowel = 'silence';
@@ -460,9 +468,9 @@ class AvatarScene {
 
       const vowels = ['A', 'I', 'U', 'E', 'O'];
       vowels.forEach(v => {
-        const targetValue = (v === this.currentVowel) ? (v === 'A' || v === 'O' ? 0.8 : 0.5) : 0.0;
+        const targetValue = (v === this.currentVowel) ? (v === 'A' || v === 'O' ? 0.85 : 0.55) : 0.0;
         const currentVal = this.currentInfluences[v] || 0;
-        const newVal = THREE.MathUtils.lerp(currentVal, targetValue, 0.28);
+        const newVal = THREE.MathUtils.lerp(currentVal, targetValue, 0.32);
         this.currentInfluences[v] = newVal;
 
         this.faceMeshes.forEach(mesh => {
@@ -479,8 +487,9 @@ class AvatarScene {
 
     if (this.proceduralMouth) {
       const isTalking = this.animState === 'talking';
-      const targetScaleY = isTalking ? 1.2 + Math.sin(et * 16) * 1.0 : 0.1;
-      this.proceduralMouth.scale.y = THREE.MathUtils.lerp(this.proceduralMouth.scale.y, targetScaleY, 0.25);
+      // Syllabic envelope: combine low and high frequencies to mimic natural talking pacing
+      const targetScaleY = isTalking ? (0.6 + Math.abs(Math.sin(et * 8)) * 1.2 + Math.sin(et * 19) * 0.4) : 0.1;
+      this.proceduralMouth.scale.y = THREE.MathUtils.lerp(this.proceduralMouth.scale.y, targetScaleY, 0.3);
     }
 
     this.renderer.render(this.scene, this.camera);
