@@ -66,9 +66,9 @@ class AvatarScene {
       paths = ['/avatar/yuki.vrm', '/avatar/rei.vrm'];
     } else if (id === 'rohan') {
       paths = ['/avatar/akira.vrm', '/avatar/riku.vrm'];
-    } else if (id === 'kashyap' || id === 'karthic' || id === 'aditya') {
+    } else if (id === 'divya' || id === 'karthic' || id === 'aditya') {
       paths = ['/avatar/sora.vrm', '/avatar/kaito.vrm'];
-    } else if (id === 'divya' || id === 'neha') {
+    } else if (id === 'kashyap' || id === 'neha') {
       paths = ['/avatar/mika.vrm', '/avatar/yuki.vrm'];
     } else if (id === 'vikram' || id === 'abhijit') {
       paths = ['/avatar/kaito.vrm', '/avatar/riku.vrm'];
@@ -1050,11 +1050,17 @@ export default function AvatarMentorWidget({
   }, [isConversing]);
 
 
-  // Background Speech Recognition for Wake Words
+  // Background Speech Recognition for Wake Words with Echo Gate
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
+
+    // Echo Gate: Disable speech recognition while AI is speaking or loading to prevent feedback loops
+    if (speaking || loading) {
+      setRecognizing(false);
+      return;
+    }
 
     let recognition: any = null;
     let shouldListen = true;
@@ -1063,47 +1069,54 @@ export default function AvatarMentorWidget({
       if (!shouldListen) return;
       try {
         recognition = new SpeechRecognition();
-        recognition.continuous = false; // single-shot restarted onend is more cross-browser robust
+        recognition.continuous = false;
         recognition.interimResults = false;
-        recognition.lang = 'en-US';
+        recognition.maxAlternatives = 1;
+        
+        // Auto-match browser locale for native accent accuracy (e.g., en-IN, en-US, en-GB)
+        recognition.lang = navigator.language || 'en-US';
+
+        // Grammar List: weight recognition probabilities for critical vocabulary
+        const SpeechGrammarList = (window as any).SpeechGrammarList || (window as any).webkitSpeechGrammarList;
+        if (SpeechGrammarList) {
+          const speechRecognitionList = new SpeechGrammarList();
+          const vocab = ['priya', 'kashyap', 'karthic', 'maya', 'divya', 'sentinel', 'pinit', 'socratic', 'verify', 'exam'];
+          const grammar = '#JSGF V1.0; grammar vocab; public <word> = ' + vocab.join(' | ') + ' ;';
+          speechRecognitionList.addFromString(grammar, 1);
+          recognition.grammars = speechRecognitionList;
+        }
 
         recognition.onstart = () => {
           setRecognizing(true);
         };
 
         recognition.onresult = (e: any) => {
-          // Prevent the avatar's own voice from triggering if speaking or loading
-          if (speakingRef.current || loadingRef.current) {
-            console.log("Speech recognition ignored: AI is speaking or loading.");
-            return;
-          }
+          // Double guard against AI voice capture
+          if (speakingRef.current || loadingRef.current) return;
 
           const transcript = e.results[0]?.[0]?.transcript;
           if (!transcript) return;
 
           // ── Owner Voice Signature Lock Check ──
           if (voiceFreqRef.current) {
-            const validPitches = pitchHistoryRef.current.slice(-12); // Check last 1.2 seconds of speech
+            const validPitches = pitchHistoryRef.current.slice(-12);
             if (validPitches.length > 0) {
-              // Sort and slice out top and bottom 20% to remove outliers
               const sorted = [...validPitches].sort((a, b) => a - b);
               const startIdx = Math.floor(sorted.length * 0.2);
               const endIdx = Math.ceil(sorted.length * 0.8);
               const corePitches = sorted.slice(startIdx, endIdx);
-              
               const finalPitches = corePitches.length > 0 ? corePitches : validPitches;
               const avgPitch = finalPitches.reduce((a, b) => a + b, 0) / finalPitches.length;
               const diff = Math.abs(avgPitch - voiceFreqRef.current) / voiceFreqRef.current;
-              console.log(`[Voice Lock] Stored: ${voiceFreqRef.current}Hz | Trimmed Live: ${avgPitch.toFixed(1)}Hz | Diff: ${(diff * 100).toFixed(1)}%`);
+              console.log(`[Voice Lock] Stored: ${voiceFreqRef.current}Hz | trim avg: ${avgPitch.toFixed(1)}Hz | Diff: ${(diff * 100).toFixed(1)}%`);
 
-              if (diff > 0.30) { // Widened tolerance window to 30% to accommodate normal speech fluctuations
-                console.warn("[Voice Lock] Voice verification failed! Mismatch pitch.");
+              if (diff > 0.30) {
+                console.warn("[Voice Lock] Voice mismatch.");
                 toast.error("Voice Lock Refused 🔐", "Speaker signature mismatch. Command ignored.");
                 speakReply("Voice signature mismatch. I can only follow commands from my registered owner.");
                 return;
               }
             } else {
-              console.log("[Voice Lock] No sliding window pitch data recorded. Requesting repeat.");
               toast.error("Verification Timed Out 🔐", "Please speak clearly closer to your microphone.");
               speakReply("Sorry, I could not verify your voice signature. Please try again.");
               return;
@@ -1113,37 +1126,54 @@ export default function AvatarMentorWidget({
           const text = transcript.trim().toLowerCase();
           const activeTeacherKey = teacherId.toLowerCase();
           
-          // If we are in active conversation mode, send everything directly without requiring the wake word!
+          // If we are in active conversation mode, send everything directly without requiring the wake word
           if (conversingRef.current) {
             console.log("[Conversing] Direct speech parsed:", transcript);
             sendMessage(transcript);
             return;
           }
 
-          // Match wake word: "priya", "hey priya", "hi priya" or active teacher names
-          const matchesWakeWord = 
-            text.includes('priya') || 
-            text.includes(activeTeacherKey) ||
-            text.includes('hey ' + activeTeacherKey) ||
-            text.includes('hi ' + activeTeacherKey) ||
-            text.includes('hey priya') ||
-            text.includes('hi priya');
+          // Fuzzy phoneme matching for teacher names and default wake word (Priya)
+          const cleanText = text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
+          const fuzzyMatchPriya = /\b(priya|preya|pria|prea|freeya|freya|riya)\b/i.test(cleanText);
+          const fuzzyMatchKashyap = /\b(kashyap|kash|cash\s*up|catch\s*up|ketchup)\b/i.test(cleanText);
+          const fuzzyMatchKarthic = /\b(karthic|karthik|kartik|nega|negga)\b/i.test(cleanText);
+          const fuzzyMatchMaya = /\b(maya|maia|mya)\b/i.test(cleanText);
+          const fuzzyMatchDivya = /\b(divya|divia)\b/i.test(cleanText);
 
-          if (matchesWakeWord) {
-            console.log("Wake word detected:", transcript);
-            
-            // Maximize widget
+          let matchedWakeWord = false;
+          let matchedTeacherKey = '';
+          
+          if (fuzzyMatchPriya) {
+            matchedWakeWord = true;
+            matchedTeacherKey = 'priya';
+          } else if (fuzzyMatchKashyap) {
+            matchedWakeWord = true;
+            matchedTeacherKey = 'kashyap';
+          } else if (fuzzyMatchKarthic) {
+            matchedWakeWord = true;
+            matchedTeacherKey = 'karthic';
+          } else if (fuzzyMatchMaya) {
+            matchedWakeWord = true;
+            matchedTeacherKey = 'maya';
+          } else if (fuzzyMatchDivya) {
+            matchedWakeWord = true;
+            matchedTeacherKey = 'divya';
+          }
+
+          if (matchedWakeWord) {
+            console.log("Fuzzy wake word detected:", transcript, "Matched teacher:", matchedTeacherKey);
             setIsMinimized(false);
 
-            // Clean wake word prefix from query
-            const wakeWordRegex = new RegExp(`^(hey\\s+priya|hi\\s+priya|priya|hey\\s+${activeTeacherKey}|hi\\s+${activeTeacherKey}|${activeTeacherKey})\\b\\s*,?\\s*`, 'i');
-            const cleaned = transcript.replace(wakeWordRegex, '').trim();
+            // Strip fuzzy wake word prefixes cleanly from query
+            const cleaned = transcript
+              .replace(/\b(hey|hi|hello)\b/gi, '')
+              .replace(new RegExp(`\\b(${matchedTeacherKey}|priya|preya|pria|prea|freeya|freya|riya|kashyap|kash|cash\\s*up|catch\\s*up|ketchup|karthic|karthik|kartik|nega|negga|maya|maia|mya|divya|divia)\\b`, 'gi'), '')
+              .trim();
 
             if (cleaned.length > 0) {
-              // Send the query immediately
               sendMessage(cleaned);
             } else {
-              // Just wake word, speak greeting
               const greeting = `Yes, I am listening! How can I help you today?`;
               setMessages(prev => [...prev, { role: 'assistant', content: greeting }]);
               speakReply(greeting);
@@ -1152,7 +1182,6 @@ export default function AvatarMentorWidget({
         };
 
         recognition.onerror = (err: any) => {
-          // Log but don't disrupt continuous restart loop (except if denied)
           if (err.error === 'not-allowed') {
             console.warn("Speech recognition access denied.");
             shouldListen = false;
@@ -1162,8 +1191,7 @@ export default function AvatarMentorWidget({
         recognition.onend = () => {
           setRecognizing(false);
           if (shouldListen) {
-            // Restart after short delay
-            setTimeout(startListening, 400);
+            setTimeout(startListening, 300);
           }
         };
 
@@ -1183,7 +1211,7 @@ export default function AvatarMentorWidget({
         } catch {}
       }
     };
-  }, [teacherId, setIsMinimized, sendMessage]);
+  }, [teacherId, setIsMinimized, sendMessage, speaking, loading]);
 
   // Auto-close (minimize) timer when not responding/speaking
   useEffect(() => {

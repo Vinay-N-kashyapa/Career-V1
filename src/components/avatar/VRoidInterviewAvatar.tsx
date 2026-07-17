@@ -93,10 +93,10 @@ class AvatarScene {
     else if (teacherId === 'anish') modelName = 'riku.glb';
     else if (teacherId === 'aisha') modelName = 'yuki.glb';
     else if (teacherId === 'rohan') modelName = 'akira.glb';
-    else if (teacherId === 'kashyap') modelName = 'sora.glb';
+    else if (teacherId === 'kashyap') modelName = 'mika.glb';
     else if (teacherId === 'karthic') modelName = 'sora.glb';
     else if (teacherId === 'maya') modelName = 'yuki.glb';
-    else if (teacherId === 'divya') modelName = 'mika.glb';
+    else if (teacherId === 'divya') modelName = 'sora.glb';
     else if (teacherId === 'vikram') modelName = 'kaito.glb';
     else if (teacherId === 'shalini') modelName = 'rei.glb';
     else if (teacherId === 'aditya') modelName = 'sora.glb';

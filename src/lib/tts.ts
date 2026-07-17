@@ -15,6 +15,13 @@ const KOKORO_VOICE_MAP: Record<string, string> = {
   maya:     'bf_emma',     // Professional UK Female (matching yuki.glb)
   divya:    'af_nicole',   // Creative US Female (matching mika.glb)
   
+  // Aliases & Variations
+  'ms. maya':     'bf_emma',
+  'ms. divya':    'af_nicole',
+  'ms. priya':    'af_heart',
+  'kashyap sir':  'am_fenrir',
+  'karthic sir':  'am_karthic',
+  
   // Legacy Teachers / Fallbacks
   aisha:    'af_sky',     // Friendly US Female
   rohan:    'am_fenrir',  // Clean US Male
@@ -257,7 +264,7 @@ export async function generateTTSAudio(text: string, teacherId: string, vibe = '
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       text,
-      voice: KOKORO_VOICE_MAP[teacherId] || 'af_heart',
+      voice: KOKORO_VOICE_MAP[teacherId.toLowerCase()] || 'af_heart',
       speed: 1.0
     })
   });
