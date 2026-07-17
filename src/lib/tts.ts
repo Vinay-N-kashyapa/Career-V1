@@ -265,7 +265,7 @@ export async function generateTTSAudio(text: string, teacherId: string, vibe = '
     body: JSON.stringify({
       text,
       voice: KOKORO_VOICE_MAP[teacherId.toLowerCase()] || 'af_heart',
-      speed: 1.0
+      speed: 1.1
     })
   });
 

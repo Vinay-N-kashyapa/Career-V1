@@ -89,21 +89,22 @@ class AvatarScene {
 
     // Map teacherId to exact assigned GLB models from readmes/avatar_readme.md
     let modelName = 'hana.glb';
-    if (teacherId === 'priya') modelName = 'hana.glb';
-    else if (teacherId === 'anish') modelName = 'riku.glb';
-    else if (teacherId === 'aisha') modelName = 'yuki.glb';
-    else if (teacherId === 'rohan') modelName = 'akira.glb';
-    else if (teacherId === 'kashyap') modelName = 'mika.glb';
-    else if (teacherId === 'karthic') modelName = 'sora.glb';
-    else if (teacherId === 'maya') modelName = 'yuki.glb';
-    else if (teacherId === 'divya') modelName = 'sora.glb';
-    else if (teacherId === 'vikram') modelName = 'kaito.glb';
-    else if (teacherId === 'shalini') modelName = 'rei.glb';
-    else if (teacherId === 'aditya') modelName = 'sora.glb';
-    else if (teacherId === 'neha') modelName = 'mika.glb';
-    else if (teacherId === 'rajesh') modelName = 'riku.glb';
-    else if (teacherId === 'sneha') modelName = 'hana.glb';
-    else if (teacherId === 'abhijit') modelName = 'kaito.glb';
+    const id = teacherId.toLowerCase();
+    if (id === 'priya') modelName = 'hana.glb';
+    else if (id === 'anish') modelName = 'riku.glb';
+    else if (id === 'aisha') modelName = 'yuki.glb';
+    else if (id === 'rohan') modelName = 'akira.glb';
+    else if (id === 'kashyap') modelName = 'mika.glb';
+    else if (id === 'karthic') modelName = 'sora.glb';
+    else if (id === 'maya') modelName = 'yuki.glb';
+    else if (id === 'divya') modelName = 'sora.glb';
+    else if (id === 'vikram') modelName = 'kaito.glb';
+    else if (id === 'shalini') modelName = 'rei.glb';
+    else if (id === 'aditya') modelName = 'sora.glb';
+    else if (id === 'neha') modelName = 'mika.glb';
+    else if (id === 'rajesh') modelName = 'riku.glb';
+    else if (id === 'sneha') modelName = 'hana.glb';
+    else if (id === 'abhijit') modelName = 'kaito.glb';
     else modelName = 'hana.glb';
 
     const paths = [`/avatar/${modelName}`];
