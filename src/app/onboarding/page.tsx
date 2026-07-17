@@ -788,6 +788,7 @@ export default function OnboardingPage() {
         
         await qc.invalidateQueries({ queryKey: KEYS.me });
         toast.success('Onboarding Complete! 🚀', 'Your diagnostic blueprint is active.');
+        sessionStorage.setItem('pinit_just_onboarded', 'true');
         router.push('/dashboard');
       } catch (err) {
         console.error("Onboarding sync failure", err);
@@ -911,6 +912,7 @@ export default function OnboardingPage() {
 
         await qc.invalidateQueries({ queryKey: KEYS.me });
         toast.success('Express Onboarding Complete! ⚡', 'Unlock your dashboard and provisional job matches.');
+        sessionStorage.setItem('pinit_just_onboarded', 'true');
         router.push('/dashboard');
       } catch (err) {
         console.error('Express onboarding failure', err);
