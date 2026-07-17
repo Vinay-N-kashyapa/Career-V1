@@ -822,22 +822,22 @@ const ADMIN_NAV: NavSection[] = [
       { href: '/admissions', icon: '🎟️', label: 'Admissions' },
       { href: '/admin/students', icon: '🧑‍🎓', label: 'Students Directory' },
       { href: '/admin/exams', icon: '📝', label: 'Exam Manager' },
-      { href: '/admin', icon: '📄', label: 'Document Vault' },
-      { href: '/admin', icon: '💼', label: 'Student Services' }
+      { href: '/admin?tab=documents', icon: '📄', label: 'Document Vault' },
+      { href: '/admin?tab=services', icon: '💼', label: 'Student Services' }
     ]},
     { label: 'Student Experience', icon: '🎒', children: [
-      { href: '/admin', icon: '📚', label: 'Library' },
-      { href: '/admin', icon: '🏢', label: 'Hostel Desk' },
-      { href: '/admin', icon: '🚌', label: 'Transport' },
-      { href: '/admin', icon: '🎉', label: 'Events Registry' },
-      { href: '/admin', icon: '🔔', label: 'Broadcast Admin' },
-      { href: '/admin', icon: '⚖️', label: 'Grievance Review' }
+      { href: '/admin?tab=library', icon: '📚', label: 'Library' },
+      { href: '/admin?tab=hostel', icon: '🏢', label: 'Hostel Desk' },
+      { href: '/admin?tab=transport', icon: '🚌', label: 'Transport' },
+      { href: '/admin?tab=events', icon: '🎉', label: 'Events Registry' },
+      { href: '/admin?tab=broadcast', icon: '🔔', label: 'Broadcast Admin' },
+      { href: '/admin?tab=grievances', icon: '⚖️', label: 'Grievance Review' }
     ]},
     { label: 'Faculty Studio', icon: '👨‍🏫', children: [
       { href: '/admin/teacher', icon: '👩‍🏫', label: 'Faculty Manager' },
-      { href: '/admin', icon: '🔬', label: 'Research Projects' },
+      { href: '/admin?tab=research', icon: '🔬', label: 'Research Projects' },
       { href: '/quests/teacher-select', icon: '🗺', label: 'Quest Selector' },
-      { href: '/admin', icon: '💼', label: 'HR & Clock Logs' }
+      { href: '/admin?tab=hr', icon: '💼', label: 'HR & Clock Logs' }
     ]},
     { label: 'Career Intelligence', icon: '🚀', children: [
       { href: '/career-dna', icon: '🧬', label: 'Career DNA' },
@@ -849,19 +849,19 @@ const ADMIN_NAV: NavSection[] = [
       { href: '/crm', icon: '💼', label: 'Company CRM' }
     ]},
     { label: 'Campus Operations', icon: '🏢', children: [
-      { href: '/admin', icon: '💳', label: 'Finance Console' },
-      { href: '/admin', icon: '🛒', label: 'Procurement PO' },
-      { href: '/admin', icon: '📦', label: 'Asset Management' },
-      { href: '/admin', icon: '🔧', label: 'Infrastructure Maintenance' }
+      { href: '/admin?tab=finance', icon: '💳', label: 'Finance Console' },
+      { href: '/admin?tab=procurement', icon: '🛒', label: 'Procurement PO' },
+      { href: '/admin?tab=assets', icon: '📦', label: 'Asset Management' },
+      { href: '/admin?tab=maintenance', icon: '🔧', label: 'Infrastructure Maintenance' }
     ]},
     { label: 'Administration', icon: '⚙', children: [
-      { href: '/admin', icon: '👥', label: 'Users & Roles' },
+      { href: '/admin?tab=users', icon: '👥', label: 'Users & Roles' },
       { href: '/university', icon: '🏫', label: 'Multi-campus Select' }
     ]},
     { label: 'Intelligence Center', icon: '📊', children: [
       { href: '/analytics', icon: '📊', label: 'Analytics' },
       { href: '/university', icon: '📋', label: 'Annual Reports' },
-      { href: '/advisor', icon: '🧠', label: 'AI Advisor Logs' }
+      { href: '/admin?tab=advisor', icon: '🧠', label: 'AI Advisor Logs' }
     ]},
     { label: 'Enterprise', icon: '🌐', children: [
       { href: '/integrations', icon: '🔌', label: 'API Integrations' },
