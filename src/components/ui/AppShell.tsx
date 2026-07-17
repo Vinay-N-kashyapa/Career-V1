@@ -781,20 +781,11 @@ const isGroup = (n: NavNode): n is NavGroup => 'children' in n;
 const STUDENT_NAV: NavSection[] = [
   { section: 'PinIT Career OS', items: [
     { href: '/dashboard', icon: '🏠', label: 'Dashboard' },
-    { href: '/portfolio', icon: '👤', label: 'Portfolio' },
-    { href: '/projects', icon: '💼', label: 'Industry Projects' },
-    { href: '/internships', icon: '🏢', label: 'Internship Tracker' },
-    { href: '/learning', icon: '📖', label: 'Learning Roadmap' },
-    { href: '/placement', icon: '🎯', label: 'Placement Predictor' },
-    { href: '/passport', icon: '🎫', label: 'Skill Passport' },
     { href: '/quests', icon: '🗺', label: 'Quests' },
-    { href: '/career-dna', icon: '🧬', label: 'Career DNA' },
-    { href: '/interview', icon: '🎙', label: 'AI Interview' },
     { href: '/missions', icon: '⚡', label: 'Missions' },
-    { href: '/career-twin', icon: '🧬', label: 'Career Twin' },
+    { href: '/interview', icon: '🎙', label: 'AI Interview' },
     { href: '/group-discussion', icon: '💬', label: 'GD Practice' },
-    { href: '/analytics', icon: '📊', label: 'Analytics' },
-    { href: '/documents', icon: '📂', label: 'Document Vault' }
+    { href: '/learning', icon: '📖', label: 'Learning & Twin' }
   ]}
 ];
 
@@ -804,7 +795,6 @@ const RIGHT_NAV: { id: string; href?: string; icon: string; label: string }[] = 
   { id: 'results', icon: '📊', label: 'My Results' },
   { id: 'notes', icon: '📚', label: 'Study Notes' },
   { id: 'notifications', icon: '🔔', label: 'Notifications' },
-  { id: 'contact', icon: '💬', label: 'Contact Admin' },
   
   // Shifted student services:
   { id: 'services', href: '/services', icon: '💼', label: 'Student Services' },
@@ -813,13 +803,11 @@ const RIGHT_NAV: { id: string; href?: string; icon: string; label: string }[] = 
   { id: 'hostel', href: '/hostel', icon: '🏢', label: 'Hostel Hub' },
   { id: 'transport', href: '/transport', icon: '🚌', label: 'Transit Desk' },
   { id: 'events', href: '/events', icon: '🎉', label: 'Campus Events' },
-  { id: 'grievances', href: '/grievances', icon: '⚖️', label: 'Grievance Desk' },
+  { id: 'contact_admin', href: '/grievances', icon: '💬', label: 'Contact Admin' },
   // Shifted from Faculty studio:
-  { id: 'mentors', href: '/profile', icon: '👩‍🏫', label: 'My Mentors' },
   { id: 'research', href: '/research', icon: '🔬', label: 'Research Desk' },
   // Shifted career intelligence:
-  { id: 'ats', href: '/applications', icon: '📄', label: 'ATS Pipeline' },
-  { id: 'internship', href: '/opportunities', icon: '🎯', label: 'Internships' },
+  { id: 'career_intel', href: '/career-intelligence', icon: '💼', label: 'Career Intelligence' },
   // Shifted operations:
   { id: 'finance', href: '/finance', icon: '💳', label: 'Finance & Fees' },
   { id: 'infrastructure', href: '/maintenance', icon: '🔧', label: 'Infrastructure' },
