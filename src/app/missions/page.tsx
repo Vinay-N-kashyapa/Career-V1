@@ -348,6 +348,18 @@ export default function MissionsPage() {
           toast.success("Evolution Complete! 🧠", `Socratic review compiled. Mindset Archetype evolved to: ${computedMindsetArchetype}. Streak: 🔥${newStreak} days! +150 XP and +10 Pins awarded.`);
         }
 
+        // Have the active avatar speak the conclusion out loud explaining where we started and where we ended
+        const lastSpeaker = roleplayScenario?.activeAvatar || 'anish';
+        setAnimState('talking');
+        speakWithAvatar(
+          data.spokenConclusion || "We have reached the end of the crisis simulation. Please review your strategic decision and accountability scores inside the blueprint below.",
+          lastSpeaker,
+          () => setAnimState('talking'),
+          () => setAnimState('idle'),
+          false,
+          true
+        );
+
         // Save to Socratic history in local storage
         try {
           const rawHistory = localStorage.getItem('pinit_socratic_history');

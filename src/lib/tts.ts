@@ -257,6 +257,7 @@ function fallbackWebSpeech(
 }
 
 let isNeuralReady = true;
+let currentSpeechId = 0;
 
 export async function generateTTSAudio(text: string, teacherId: string, vibe = 'neutral'): Promise<{ buffer: Float32Array; sampleRate: number }> {
   const response = await fetch('https://pinit-backend-v8pd.onrender.com/api/tts', {
@@ -289,6 +290,7 @@ export async function speakWithAvatar(
   useNeural = true
 ) {
   stopSpeaking();
+  const mySpeechId = ++currentSpeechId;
   if (isMuted || !text) return;
 
   let sanitized = text
@@ -344,6 +346,11 @@ export async function speakWithAvatar(
       );
 
       const { buffer, sampleRate } = await Promise.race([workerPromise, timeoutPromise]);
+      if (mySpeechId !== currentSpeechId) {
+        console.log("[TTS] Discarding superseded voice response.");
+        return;
+      }
+
       const ctx = getAudioContext(sampleRate);
       const audioBuf = ctx.createBuffer(1, buffer.length, sampleRate);
       audioBuf.copyToChannel(buffer as any, 0);
@@ -364,6 +371,8 @@ export async function speakWithAvatar(
       console.warn('[TTS] Render Cloud TTS generation failed, falling back to Web Speech Synthesis:', err.message);
     }
   }
+
+  if (mySpeechId !== currentSpeechId) return;
 
   // Fallback: Safe simulated timing
   fallbackWebSpeech(enhancedText, teacherId, onStart, onEnd, vibe);
