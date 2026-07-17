@@ -206,6 +206,7 @@ function GlobalAvatar({ user, profile, refreshProfile }: { user: any; profile: a
   // ── Congratulations state ──────────────────────────────────────────────────
   const [celebEvent, setCelebEvent] = useState<any>(null);
   const celebTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const spokenCelebRef = useRef<any>(null);
 
   const teacherId = profile?.guidanceMentorId || 'priya';
   const teacher = TEACHER_CONFIG[teacherId] || TEACHER_CONFIG.priya;
@@ -281,9 +282,10 @@ function GlobalAvatar({ user, profile, refreshProfile }: { user: any; profile: a
     }
   }, [tourActive, tourStep, teacherId, router, pathname]);
 
-  // Speak congratulations out loud when a celebration triggers
+  // Speak congratulations out loud when a celebration triggers (ensuring only once per event object)
   useEffect(() => {
-    if (celebEvent) {
+    if (celebEvent && celebEvent !== spokenCelebRef.current) {
+      spokenCelebRef.current = celebEvent;
       const msg = buildCongratMessage(celebEvent, profile);
       const textToSpeak = `Well done! ${msg.body} ${msg.tip}`;
       const cleanText = textToSpeak.replace(/\*\*/g, '').replace(/🎉|🏆|💪|🧑‍💻|⚡|🔥|🗺|🎤|💬/g, '');
@@ -743,6 +745,12 @@ const isGroup = (n: NavNode): n is NavGroup => 'children' in n;
 const STUDENT_NAV: NavSection[] = [
   { section: 'PinIT Career OS', items: [
     { href: '/dashboard', icon: '🏠', label: 'Dashboard' },
+    { href: '/portfolio', icon: '👤', label: 'Portfolio' },
+    { href: '/projects', icon: '💼', label: 'Industry Projects' },
+    { href: '/internships', icon: '🏢', label: 'Internship Tracker' },
+    { href: '/learning', icon: '📖', label: 'Learning Roadmap' },
+    { href: '/placement', icon: '🎯', label: 'Placement Predictor' },
+    { href: '/passport', icon: '🎫', label: 'Skill Passport' },
     { href: '/quests', icon: '🗺', label: 'Quests' },
     { href: '/career-dna', icon: '🧬', label: 'Career DNA' },
     { href: '/interview', icon: '🎙', label: 'AI Interview' },
@@ -814,7 +822,7 @@ const ADMIN_NAV: NavSection[] = [
       { href: '/interview', icon: '🎙', label: 'AI Interview' },
       { href: '/missions', icon: '⚡', label: 'Coding Missions' },
       { href: '/quests', icon: '🗺', label: 'Coding Quests' },
-      { href: '/recruiter', icon: '💼', label: 'Company CRM' }
+      { href: '/crm', icon: '💼', label: 'Company CRM' }
     ]},
     { label: 'Campus Operations', icon: '🏢', children: [
       { href: '/admin', icon: '💳', label: 'Finance Console' },
@@ -832,7 +840,7 @@ const ADMIN_NAV: NavSection[] = [
       { href: '/advisor', icon: '🧠', label: 'AI Advisor Logs' }
     ]},
     { label: 'Enterprise', icon: '🌐', children: [
-      { href: '/admin/settings', icon: '🔌', label: 'ERP Connectors' },
+      { href: '/integrations', icon: '🔌', label: 'API Integrations' },
       { href: '/admin/settings', icon: '⚡', label: 'Migration Wizard' },
       { href: '/admin/settings', icon: '🔑', label: 'API Gateway keys' }
     ]}
