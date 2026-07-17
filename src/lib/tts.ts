@@ -11,7 +11,7 @@ const KOKORO_VOICE_MAP: Record<string, string> = {
 
   // Teachers (4)
   kashyap:  'am_fenrir',   // Clean US Male (matching sora.glb)
-  karthic:  'am_liam',     // Clear, friendly US Male (matching sora.glb)
+  karthic:  'am_karthic',  // Professional US Male (matching sora.glb)
   maya:     'bf_emma',     // Professional UK Female (matching yuki.glb)
   divya:    'af_nicole',   // Creative US Female (matching mika.glb)
   
