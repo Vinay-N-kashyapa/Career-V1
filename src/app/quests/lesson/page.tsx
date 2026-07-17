@@ -127,9 +127,12 @@ function LessonPageContent() {
     };
   }, [currentSlide, slides]);
 
-  // Preload model on mount
+  // Preload model on mount, and stop speaking when the lesson page is exited/unmounted
   useEffect(() => {
     preloadTTS();
+    return () => {
+      stopSpeaking();
+    };
   }, []);
 
   // Preload next slide text in the background!
