@@ -43,6 +43,7 @@ export interface OnboardingAnswers {
   selectedTeacherId?: string;
   questCodes?: Record<string, string>;
   last_streak_date?: string;
+  communication_history?: any[];
 }
 
 export interface PinTransaction {
@@ -158,8 +159,10 @@ interface CareerOSContextType {
   generateFusedRoadmap: (skillTags: string[], weakAreas: string[], courseId?: string) => Promise<any[] | null>;
   activeCourseId: string | null;
   setActiveCourseId: (val: string | null) => void;
+  activeCourseIds?: string[];
+  setActiveCourseIds?: (vals: string[]) => void;
   completedQuests: string[];
-  addCompletedQuest: (questId: string, isExam?: boolean, xpAmount?: number) => void;
+  addCompletedQuest: (questId: string, isExam?: boolean, xpAmount?: number, courseId?: string) => void;
   saveQuestCode: (questId: string, code: string) => void;
   javaTestPassed: boolean;
   setJavaTestPassed: (val: boolean) => void;
@@ -206,6 +209,7 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
   const [resumeGenerated, setResumeGeneratedState] = useState(false);
   const [roadmapGenerated, setRoadmapGeneratedState] = useState(false);
   const [activeCourseId, setActiveCourseIdState] = useState<string | null>(null);
+  const [activeCourseIds, setActiveCourseIdsState] = useState<string[]>([]);
   const [completedQuests, setCompletedQuestsState] = useState<string[]>([]);
   const [javaTestPassed, setJavaTestPassedState] = useState(false);
   const [groupPanelPassed, setGroupPanelPassedState] = useState(false);
@@ -241,7 +245,8 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
     forceShowCareer: `pinit_${userId}_force_show_career`,
     demoTabsUnlocked: `pinit_${userId}_demo_tabs_unlocked`,
     aiTokens:  `pinit_${userId}_ai_tokens`,
-    activeCourse: `pinit_${userId}_active_course_id`
+    activeCourse: `pinit_${userId}_active_course_id`,
+    activeCourses: `pinit_${userId}_active_course_ids`
   };
 
   const save = useCallback((key: string, data: unknown) => {
@@ -284,6 +289,7 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
       setDemoTabsUnlockedState(get(keys.demoTabsUnlocked) ?? false);
       setAiUseTokensState(get(keys.aiTokens) ?? 120);
       setActiveCourseIdState(get(keys.activeCourse) ?? null);
+      setActiveCourseIdsState(get(keys.activeCourses) ?? []);
     } catch {}
     finally { setIsLoaded(true); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -642,10 +648,23 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
     }
   }, [keys.roadGen, onboardingStep, setOnboardingStep, save]);
 
+  const setActiveCourseIds = useCallback((vals: string[]) => {
+    setActiveCourseIdsState(vals);
+    save(keys.activeCourses, vals);
+  }, [keys.activeCourses, save]);
+
   const setActiveCourseId = useCallback((val: string | null) => {
     setActiveCourseIdState(val);
     save(keys.activeCourse, val);
-  }, [keys.activeCourse, save]);
+    if (val) {
+      setActiveCourseIdsState(prev => {
+        if (prev.includes(val)) return prev;
+        const next = [...prev, val];
+        save(keys.activeCourses, next);
+        return next;
+      });
+    }
+  }, [keys.activeCourse, keys.activeCourses, save]);
 
   const generateFusedRoadmap = useCallback(async (skillTags: string[], weakAreas: string[], courseId?: string) => {
     const targetRole = onboardingAnswers.role || 'Software Developer Engineer (SDE)';
@@ -695,11 +714,21 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
           })
         }));
 
-        save(modulesKey, normalized);
+        const courseModulesKey = courseId ? `pinit_${userId}_roadmap_modules_${courseId}` : modulesKey;
+        save(courseModulesKey, normalized);
         setRoadmapGeneratedState(true);
         save(keys.roadGen, true);
         if (onboardingStep < 4) {
           setOnboardingStep(4);
+        }
+
+        if (courseId) {
+          setActiveCourseIdsState(prev => {
+            if (prev.includes(courseId)) return prev;
+            const next = [...prev, courseId];
+            save(keys.activeCourses, next);
+            return next;
+          });
         }
 
         // Sync roadmap generation and step with Supabase database profile
@@ -719,15 +748,25 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
       console.error('Failed to generate dynamic AI roadmap:', err);
     }
     return null;
-  }, [userId, onboardingAnswers, keys.roadGen, onboardingStep, setOnboardingStep, save]);
+  }, [userId, onboardingAnswers, keys.roadGen, keys.activeCourses, onboardingStep, setOnboardingStep, save]);
 
-  const addCompletedQuest = useCallback((questId: string, isExam?: boolean, xpAmount?: number) => {
-    // Check daily limit of 3 completed quests
+  const addCompletedQuest = useCallback((questId: string, isExam?: boolean, xpAmount?: number, courseId?: string) => {
+    // Determine the courseId to associate. If not supplied, try to guess or use activeCourseId.
+    const assocCourseId = courseId || activeCourseId || 'default-course';
+
+    // Check daily limit of 3 completed quests FOR THIS COURSE
+    // We store timestamps as stringified objects: "2026-07-17T13:00:00.000Z|course-java-logic"
     const timestamps = onboardingAnswers.completedQuestsTimestamps || [];
     const today = new Date().toDateString();
-    const todayCompletions = timestamps.filter(ts => new Date(ts).toDateString() === today);
+    const todayCompletions = timestamps.filter(raw => {
+      const parts = raw.split('|');
+      const ts = parts[0];
+      const cid = parts[1] || activeCourseId || 'default-course';
+      return new Date(ts).toDateString() === today && cid === assocCourseId;
+    });
+
     if (todayCompletions.length >= 3) {
-      toast.error('Daily Limit Reached ⏳', 'You have reached your limit of 3 completed quests for today.');
+      toast.error('Daily Limit Reached ⏳', `You have reached your limit of 3 completed quests for this course today.`);
       return;
     }
 
@@ -741,8 +780,9 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
     const nextQuests = [...completedQuests, questId];
     save(keys.quests, nextQuests);
     
-    // Save completion timestamp
-    const nextTimestamps = [...timestamps, new Date().toISOString()];
+    // Save completion timestamp with courseId tag
+    const timestampTag = `${new Date().toISOString()}|${assocCourseId}`;
+    const nextTimestamps = [...timestamps, timestampTag];
     const nextAnswers = {
       ...onboardingAnswers,
       completedQuestsTimestamps: nextTimestamps
@@ -795,7 +835,7 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
         }
       }));
     }
-  }, [completedQuests, keys.quests, onboardingAnswers, keys.onboard, onboardingStep, setOnboardingStep, earnPins, save, userId]);
+  }, [completedQuests, activeCourseId, keys.quests, onboardingAnswers, keys.onboard, onboardingStep, setOnboardingStep, earnPins, save, userId]);
 
   const saveQuestCode = useCallback((questId: string, code: string) => {
     const nextCodes = {
@@ -1071,6 +1111,7 @@ export function CareerOSProvider({ children }: { children: React.ReactNode }) {
       roadmapGenerated, setRoadmapGenerated,
       generateFusedRoadmap,
       activeCourseId, setActiveCourseId,
+      activeCourseIds, setActiveCourseIds,
       completedQuests, addCompletedQuest, saveQuestCode,
       javaTestPassed, setJavaTestPassed,
       groupPanelPassed, setGroupPanelPassed,
